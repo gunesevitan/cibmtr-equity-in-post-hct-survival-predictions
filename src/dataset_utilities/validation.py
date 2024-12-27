@@ -18,7 +18,7 @@ def create_folds(df, stratify_columns, n_splits, shuffle=True, random_state=42, 
         Dataset to create folds
 
     stratify_columns: list of shape (n_stratify_columns)
-        List of names of stratify columns
+        Array stratify column names
 
     n_splits: int
         Number of folds (2 <= n_splits)

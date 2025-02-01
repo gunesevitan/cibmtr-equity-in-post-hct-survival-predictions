@@ -4,11 +4,14 @@ import logging
 
 
 # Project structure
-ROOT = Path('/Users/gunes/Desktop/Projects/cibmtr-equity-in-post-hct-survival-predictions')
+ROOT = Path('/home/gunes/Desktop/Kaggle/cibmtr-equity-in-post-hct-survival-predictions')
 DATA = ROOT / 'data'
 LOGS = ROOT / 'logs'
 MODELS = ROOT / 'models'
 EDA = ROOT / 'eda'
+NOTEBOOK = ROOT / 'notebook'
+for path in [DATA, LOGS, MODELS, EDA, NOTEBOOK]:
+    path.mkdir(parents=True, exist_ok=True)
 
 # Logging configurations
 LOGGING_LEVEL = logging.INFO

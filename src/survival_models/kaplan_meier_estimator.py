@@ -12,7 +12,7 @@ import visualization
 
 if __name__ == '__main__':
 
-    model_directory = Path(settings.MODELS / 'kaplan_meier_estimator')
+    model_directory = Path(settings.MODELS / 'kaplan_meier_fitter')
     model_directory.mkdir(parents=True, exist_ok=True)
 
     config = yaml.load(open(model_directory / 'config.yaml'), Loader=yaml.FullLoader)
@@ -55,32 +55,31 @@ if __name__ == '__main__':
 
     kmf = KaplanMeierFitter()
     kmf.fit(df['efs_time'], df['efs'])
+    df['kmf_survival_probability'] = kmf.survival_function_at_times(df['efs_time']).values
 
-    with open(model_directory / 'kaplan_meier_estimator.pickle', mode='wb') as f:
+    with open(model_directory / 'kaplan_meier_fitter.pickle', mode='wb') as f:
         pickle.dump(kmf, f)
-    settings.logger.info(f'kaplan_meier_estimator.pickle is saved to {model_directory}')
+    settings.logger.info(f'kaplan_meier_fitter.pickle is saved to {model_directory}')
 
     visualization.visualize_survival_probabilities(
         kmf=kmf,
-        title='Kaplan-Meier Estimator Survival Probabilities',
+        title='Kaplan-Meier Fitter Survival Probabilities',
         path=model_directory / 'survival_probabilities.png'
     )
     settings.logger.info(f'survival_probabilities.png is saved to {model_directory}')
-    df['kmf_survival_probability'] = kmf.survival_function_at_times(df['efs_time']).values
 
     for race_group, df_group in df.groupby('race_group'):
 
         kmf = KaplanMeierFitter()
         kmf.fit(df_group['efs_time'], df_group['efs'])
-
-        file_name = f'kaplan_meier_estimator_{"_".join(str(race_group).lower().split())}.pickle'
-        with open(model_directory / file_name, mode='wb') as f:
-            pickle.dump(kmf, f)
-        settings.logger.info(f'{file_name} is saved to {model_directory}')
-
         df_group['kmf_race_group_survival_probability'] = kmf.survival_function_at_times(df_group['efs_time']).values
         group_idx = df_group.index
         df.loc[group_idx, 'kmf_race_group_survival_probability'] = df_group['kmf_race_group_survival_probability']
+
+        file_name = f'kaplan_meier_fitter_{"_".join(str(race_group).lower().split())}.pickle'
+        with open(model_directory / file_name, mode='wb') as f:
+            pickle.dump(kmf, f)
+        settings.logger.info(f'{file_name} is saved to {model_directory}')
 
     df.loc[:, [
         'kmf_survival_probability', 'kmf_race_group_survival_probability',

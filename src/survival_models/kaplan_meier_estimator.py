@@ -4,53 +4,10 @@ import pickle
 import yaml
 import pandas as pd
 from lifelines import KaplanMeierFitter
-import matplotlib.pyplot as plt
 
 sys.path.append('..')
 import settings
-
-
-def visualize_survival_probabilities(kmf, title, path=None):
-
-    """
-    Visualize survival probabilities of the given Kaplan-Meier estimator
-
-    Parameters
-    ----------
-    kmf: lifelines.KaplanMeierFitter
-        Kaplan-Meier estimator fit on dataset
-
-    title: str
-        Title of the plot
-
-    path: path-like str or None
-        Path of the output file or None (if path is None, plot is displayed with selected backend)
-    """
-
-    fig, ax = plt.subplots(figsize=(32, 12))
-
-    kmf.plot_survival_function(
-        ax=ax,
-        label='efs',
-        alpha=0.5,
-        show_censors=True,
-        censor_styles={
-            'ms': 5,
-            'marker': 's'
-        })
-
-    ax.set_xlabel('Timeline', size=20, labelpad=15)
-    ax.set_ylabel('Probability', size=20, labelpad=15)
-    ax.tick_params(axis='x', labelsize=15, pad=10)
-    ax.tick_params(axis='y', labelsize=15, pad=10)
-    ax.set_title(title, size=20, pad=15)
-    ax.legend(loc='best', prop={'size': 18})
-
-    if path is None:
-        plt.show()
-    else:
-        plt.savefig(path)
-        plt.close(fig)
+import visualization
 
 
 if __name__ == '__main__':
@@ -103,7 +60,7 @@ if __name__ == '__main__':
         pickle.dump(kmf, f)
     settings.logger.info(f'kaplan_meier_estimator.pickle is saved to {model_directory}')
 
-    visualize_survival_probabilities(
+    visualization.visualize_survival_probabilities(
         kmf=kmf,
         title='Kaplan-Meier Estimator Survival Probabilities',
         path=model_directory / 'survival_probabilities.png'

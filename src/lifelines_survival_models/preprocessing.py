@@ -55,14 +55,14 @@ def normalize_continuous_columns(df, continuous_columns, transformer_directory, 
             normalizer = pickle.load(f)
 
         normalized_column_names = [f'{column}_normalized' for column in continuous_columns]
-        df[normalized_column_names] = normalizer.transform(df[continuous_columns].values)
+        df[normalized_column_names] = normalizer.transform(df[continuous_columns].fillna(0).values)
 
     else:
 
         normalizer = StandardScaler()
         normalizer.fit(df[continuous_columns].values)
         normalized_column_names = [f'{column}_normalized' for column in continuous_columns]
-        df[normalized_column_names] = normalizer.transform(df[continuous_columns].values)
+        df[normalized_column_names] = normalizer.transform(df[continuous_columns].fillna(0).values)
 
         with open(transformer_directory / 'standard_scaler.pickle', mode='wb') as f:
             pickle.dump(normalizer, f)
@@ -72,14 +72,15 @@ def normalize_continuous_columns(df, continuous_columns, transformer_directory, 
 
 def preprocess(
         df,
-        categorical_columns, one_hot_encoder_directory, load_one_hot_encoders,
+        categorical_columns, continuous_columns,
+        transformer_directory, load_transformers
 ):
 
     df = one_hot_encode_categorical_columns(
         df=df,
         categorical_columns=categorical_columns,
-        transformer_directory=one_hot_encoder_directory,
-        load_transformers=load_one_hot_encoders
+        transformer_directory=transformer_directory,
+        load_transformers=load_transformers
     )
 
     df = normalize_continuous_columns(

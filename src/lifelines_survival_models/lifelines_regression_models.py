@@ -45,9 +45,9 @@ if __name__ == '__main__':
     )
 
     folds = config['training']['folds']
-    features = df.columns.tolist()[64:]
-    time_column = 'efs_time'
-    event_column = 'efs'
+    features = config['training']['features']
+    time_column = config['training']['time']
+    event_column = config['training']['event']
 
     settings.logger.info(
         f'''
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
         model = getattr(lifelines, config['model_class'])(**config['model_parameters'])
         model.fit(
-            df=df[[time_column, event_column] + features],
+            df=df.loc[training_mask, [time_column, event_column] + features],
             duration_col=time_column,
             event_col=event_column,
         )
@@ -96,6 +96,7 @@ if __name__ == '__main__':
         df_coefficients.loc[:, fold] = model.params_
 
         df.loc[validation_mask, 'prediction'] = model.predict_partial_hazard(df.loc[validation_mask, features])
+
         validation_scores = metrics.score(
             df=df.loc[validation_mask],
             group_column='race_group',
@@ -162,5 +163,17 @@ if __name__ == '__main__':
     )
     settings.logger.info(f'Saved coefficients.png to {model_directory}')
 
-    df[['prediction']].to_parquet(model_directory / 'oof_predictions.parquet')
-    settings.logger.info(f'Saved oof_predictions.parquet to {model_directory}')
+    model = getattr(lifelines, config['model_class'])(**config['model_parameters'])
+    model.fit(
+        df=df.loc[:, [time_column, event_column] + features],
+        duration_col=time_column,
+        event_col=event_column,
+    )
+    model_file_name = 'model.pickle'
+    with open(model_directory / model_file_name, mode='wb') as f:
+        pickle.dump(model, f)
+    settings.logger.info(f'{model_file_name} is saved to {model_directory}')
+    df.loc[:, 'insample_prediction'] = model.predict_partial_hazard(df.loc[:, features])
+
+    df[['insample_prediction', 'prediction']].to_parquet(model_directory / 'predictions.parquet')
+    settings.logger.info(f'Saved predictions.parquet to {model_directory}')

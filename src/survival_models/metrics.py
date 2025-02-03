@@ -1,34 +1,59 @@
+import numpy as np
 from lifelines.utils import concordance_index
 
 
-def score(y_true_time, y_true_event, y_pred):
+def score(df, group_column, time_column, event_column, prediction_column):
 
     """
-    Calculate metric scores on targets and predictions
+    Calculate global and group-wise concordance index scores
 
     Parameters
     ----------
-    y_true_time: numpy.ndarray of shape (n_samples)
-        Continuous event times
+    df: pandas.DataFrame of shape (n_samples, 4)
+        Dataframe with group, time, event and prediction columns
 
-    y_true_event: numpy.ndarray of shape (n_samples)
-        Binary event
+    group_column: str
+        Name of the group column
 
-    y_pred: numpy.ndarray of shape (n_samples)
-        Score predictions
+    time_column: str
+        Name of the continuous time column
+
+    event_column: str
+        Name of the binary event column
+
+    prediction_column: str
+        Name of the prediction column
 
     Returns
     -------
-    scores: dict
-        Dictionary of metric scores
+    scores: dict of {metric: score}
+        Dictionary of metrics and scores
     """
 
     scores = {
-        'concordance_index': float(concordance_index(
-            event_times=y_true_time,
-            predicted_scores=-y_pred,
-            event_observed=y_true_event
+        'micro_concordance_index': float(concordance_index(
+            event_times=df[time_column],
+            predicted_scores=-df[prediction_column],
+            event_observed=df[event_column]
         ))
     }
+
+    group_scores = []
+    for group, df_group in df.groupby(group_column):
+        group_score = concordance_index(
+            event_times=df_group[time_column],
+            predicted_scores=-df_group[prediction_column],
+            event_observed=df_group[event_column]
+        )
+        group_scores.append(group_score)
+        scores[f'{"_".join(group.lower().split())}_concordance_index'] = float(group_score)
+
+    macro_concordance_index = np.mean(group_scores)
+    std_concordance_index = np.std(group_scores)
+    stratified_concordance_index = macro_concordance_index - std_concordance_index
+
+    scores['macro_concordance_index'] = float(macro_concordance_index)
+    scores['std_concordance_index'] = float(std_concordance_index)
+    scores['stratified_concordance_index'] = float(stratified_concordance_index)
 
     return scores

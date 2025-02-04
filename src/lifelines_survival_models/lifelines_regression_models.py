@@ -95,14 +95,18 @@ if __name__ == '__main__':
 
         df_coefficients.loc[:, fold] = model.params_
 
-        df.loc[validation_mask, 'prediction'] = model.predict_partial_hazard(df.loc[validation_mask, features])
+        df.loc[validation_mask, 'cph_oof_risk_score'] = model.predict_partial_hazard(df.loc[validation_mask, features])
+        df.loc[validation_mask, 'cph_oof_survival_probability'] = model.predict_survival_function(
+            df.loc[validation_mask, features],
+            times=df.loc[validation_mask, time_column]
+        ).to_numpy().diagonal()
 
         validation_scores = metrics.score(
             df=df.loc[validation_mask],
             group_column='race_group',
             time_column='efs_time',
             event_column='efs',
-            prediction_column='prediction'
+            prediction_column='cph_oof_risk_score'
         )
         settings.logger.info(f'Fold: {fold} - Validation Scores: {json.dumps(validation_scores, indent=2)}')
         scores.append(validation_scores)
@@ -127,13 +131,13 @@ if __name__ == '__main__':
         '''
     )
 
-    oof_mask = df['prediction'].notna()
+    oof_mask = df['cph_oof_risk_score'].notna()
     oof_scores = metrics.score(
         df=df.loc[oof_mask],
         group_column='race_group',
         time_column='efs_time',
         event_column='efs',
-        prediction_column='prediction'
+        prediction_column='cph_oof_risk_score'
     )
     settings.logger.info(f'OOF Scores: {json.dumps(oof_scores, indent=2)}')
 
@@ -173,7 +177,14 @@ if __name__ == '__main__':
     with open(model_directory / model_file_name, mode='wb') as f:
         pickle.dump(model, f)
     settings.logger.info(f'{model_file_name} is saved to {model_directory}')
-    df.loc[:, 'insample_prediction'] = model.predict_partial_hazard(df.loc[:, features])
+    df.loc[:, 'cph_risk_score'] = model.predict_partial_hazard(df.loc[:, features])
+    df.loc[:, 'cph_survival_probability'] = model.predict_survival_function(
+        df.loc[:, features],
+        times=df.loc[:, time_column]
+    ).to_numpy().diagonal()
 
-    df[['insample_prediction', 'prediction']].to_parquet(model_directory / 'predictions.parquet')
-    settings.logger.info(f'Saved predictions.parquet to {model_directory}')
+    df.loc[:, [
+        'cph_survival_probability', 'cph_risk_score',
+        'cph_oof_survival_probability', 'cph_oof_risk_score',
+    ]].to_csv(model_directory / 'survival_probabilities.csv', index=False)
+    settings.logger.info(f'survival_probabilities.csv is saved to {model_directory}')

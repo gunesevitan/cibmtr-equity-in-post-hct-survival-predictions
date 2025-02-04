@@ -148,6 +148,8 @@ def preprocess(
         Preprocessed dataframe
     """
 
+    df = df.fillna(np.nan)
+
     df = one_hot_encode_categorical_columns(
         df=df,
         categorical_columns=categorical_columns,

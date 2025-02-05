@@ -7,6 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 import sksurv.linear_model
+import sksurv.svm
 from sksurv.util import Surv
 
 sys.path.append('..')
@@ -83,7 +84,10 @@ if __name__ == '__main__':
             '''
         )
 
-        model = getattr(sksurv.linear_model, config['model_class'])(**config['model_parameters'])
+        if 'svm' in config['model_class'].lower():
+            model = getattr(sksurv.svm, config['model_class'])(**config['model_parameters'])
+        else:
+            model = getattr(sksurv.linear_model, config['model_class'])(**config['model_parameters'])
         model.fit(
             X=df.loc[training_mask, features],
             y=Surv.from_dataframe(event='efs', time='efs_time', data=df.loc[training_mask]),

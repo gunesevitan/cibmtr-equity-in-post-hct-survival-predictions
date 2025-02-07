@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-import pickle
 import yaml
 import pandas as pd
 from lifelines import KaplanMeierFitter
@@ -11,7 +10,7 @@ import visualization
 
 if __name__ == '__main__':
 
-    model_directory = Path(settings.MODELS / 'kaplan_meier_fitter')
+    model_directory = Path(settings.MODELS / 'kaplan_meier')
     model_directory.mkdir(parents=True, exist_ok=True)
 
     config = yaml.load(open(model_directory / 'config.yaml'), Loader=yaml.FullLoader)
@@ -45,9 +44,7 @@ if __name__ == '__main__':
         df.loc[validation_mask, 'oof_survival_probability'] = kmf.survival_function_at_times(df.loc[validation_mask, 'efs_time']).values
 
         for race_group in race_groups:
-
             race_group_mask = df['race_group'] == race_group
-
             kmf = KaplanMeierFitter()
             kmf.fit(df.loc[training_mask & race_group_mask, 'efs_time'], df.loc[training_mask & race_group_mask, 'efs'])
             df.loc[validation_mask & race_group_mask, 'oof_race_group_survival_probability'] = kmf.survival_function_at_times(df.loc[validation_mask & race_group_mask, 'efs_time']).values
@@ -64,15 +61,15 @@ if __name__ == '__main__':
     settings.logger.info(f'survival_probabilities.png is saved to {model_directory}')
 
     for race_group, df_group in df.groupby('race_group'):
-
         kmf = KaplanMeierFitter()
         kmf.fit(df_group['efs_time'], df_group['efs'])
         df_group['race_group_survival_probability'] = kmf.survival_function_at_times(df_group['efs_time']).values
         group_idx = df_group.index
         df.loc[group_idx, 'race_group_survival_probability'] = df_group['race_group_survival_probability']
 
-    df.loc[:, [
+    target_columns = [
         'survival_probability', 'race_group_survival_probability',
         'oof_survival_probability', 'oof_race_group_survival_probability',
-    ]].to_csv(model_directory / 'targets.csv', index=False)
+    ]
+    df.loc[:, target_columns].to_csv(model_directory / 'targets.csv', index=False)
     settings.logger.info(f'targets.csv is saved to {model_directory}')

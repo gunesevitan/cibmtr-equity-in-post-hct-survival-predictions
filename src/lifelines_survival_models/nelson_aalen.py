@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 import pandas as pd
 from lifelines import NelsonAalenFitter
+
 sys.path.append('..')
 import settings
 import visualization
@@ -52,7 +53,7 @@ if __name__ == '__main__':
     naf = NelsonAalenFitter()
     naf.fit(df['efs_time'], df['efs'])
     df['cumulative_hazard'] = naf.cumulative_hazard_at_times(df['efs_time']).values
-    
+
     visualization.visualize_cumulative_hazard(
         naf=naf,
         title='Nelson-Aalen Fitter Cumulative Hazard',

@@ -5,12 +5,12 @@ import matplotlib.pyplot as plt
 def visualize_survival_probabilities(kmf, title, path=None):
 
     """
-    Visualize survival probabilities of the given Kaplan-Meier estimator
+    Visualize survival probabilities of the given Kaplan-Meier fitter
 
     Parameters
     ----------
     kmf: lifelines.KaplanMeierFitter
-        Kaplan-Meier estimator fit on dataset
+        Kaplan-Meier fitter fit on dataset
 
     title: str
         Title of the plot
@@ -44,6 +44,39 @@ def visualize_survival_probabilities(kmf, title, path=None):
         plt.close(fig)
 
 
+def visualize_cumulative_hazard(naf, title, path=None):
+
+    """
+    Visualize cumulative hazard of the given Nelson-Aalen fitter
+
+    Parameters
+    ----------
+    naf: lifelines.AalenJohansenFitter
+        Nelson-Aalen fitter fit on dataset
+
+    title: str
+        Title of the plot
+
+    path: path-like str or None
+        Path of the output file or None (if path is None, plot is displayed with selected backend)
+    """
+
+    fig, ax = plt.subplots(figsize=(32, 12))
+    naf.plot_cumulative_hazard(ax=ax)
+    ax.set_xlabel('Timeline', size=20, labelpad=15)
+    ax.set_ylabel('Hazard', size=20, labelpad=15)
+    ax.tick_params(axis='x', labelsize=15, pad=10)
+    ax.tick_params(axis='y', labelsize=15, pad=10)
+    ax.set_title(title, size=20, pad=15)
+    ax.legend(loc='best', prop={'size': 18})
+
+    if path is None:
+        plt.show()
+    else:
+        plt.savefig(path)
+        plt.close(fig)
+
+
 def visualize_cumulative_density(ajf, title, path=None):
 
     """
@@ -64,7 +97,7 @@ def visualize_cumulative_density(ajf, title, path=None):
     fig, ax = plt.subplots(figsize=(32, 12))
     ajf.plot_cumulative_density(ax=ax)
     ax.set_xlabel('Timeline', size=20, labelpad=15)
-    ax.set_ylabel('Probability', size=20, labelpad=15)
+    ax.set_ylabel('Density', size=20, labelpad=15)
     ax.tick_params(axis='x', labelsize=15, pad=10)
     ax.tick_params(axis='y', labelsize=15, pad=10)
     ax.set_title(title, size=20, pad=15)

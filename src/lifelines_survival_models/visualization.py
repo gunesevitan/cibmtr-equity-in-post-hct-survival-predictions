@@ -2,15 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def visualize_survival_probabilities(kmf, title, path=None):
+def visualize_survival_function(model, title, path=None):
 
     """
-    Visualize survival probabilities of the given Kaplan-Meier fitter
+    Visualize survival function of the given model
 
     Parameters
     ----------
-    kmf: lifelines.KaplanMeierFitter
-        Kaplan-Meier fitter fit on dataset
+    model: lifelines.BaseFitter
+        Lifelines model fit on dataset
 
     title: str
         Title of the plot
@@ -20,7 +20,7 @@ def visualize_survival_probabilities(kmf, title, path=None):
     """
 
     fig, ax = plt.subplots(figsize=(32, 12))
-    kmf.plot_survival_function(
+    model.plot_survival_function(
         ax=ax,
         label='efs',
         alpha=0.5,
@@ -31,7 +31,7 @@ def visualize_survival_probabilities(kmf, title, path=None):
         }
     )
     ax.set_xlabel('Timeline', size=20, labelpad=15)
-    ax.set_ylabel('Probability', size=20, labelpad=15)
+    ax.set_ylabel('Survival Probability', size=20, labelpad=15)
     ax.tick_params(axis='x', labelsize=15, pad=10)
     ax.tick_params(axis='y', labelsize=15, pad=10)
     ax.set_title(title, size=20, pad=15)
@@ -44,15 +44,15 @@ def visualize_survival_probabilities(kmf, title, path=None):
         plt.close(fig)
 
 
-def visualize_cumulative_hazard(naf, title, path=None):
+def visualize_hazard(model, title, path=None):
 
     """
-    Visualize cumulative hazard of the given Nelson-Aalen fitter
+    Visualize hazard of the given model
 
     Parameters
     ----------
-    naf: lifelines.AalenJohansenFitter
-        Nelson-Aalen fitter fit on dataset
+    model: lifelines.BaseFitter
+        Lifelines model fit on dataset
 
     title: str
         Title of the plot
@@ -62,7 +62,7 @@ def visualize_cumulative_hazard(naf, title, path=None):
     """
 
     fig, ax = plt.subplots(figsize=(32, 12))
-    naf.plot_cumulative_hazard(ax=ax)
+    model.plot_hazard(ax=ax)
     ax.set_xlabel('Timeline', size=20, labelpad=15)
     ax.set_ylabel('Hazard', size=20, labelpad=15)
     ax.tick_params(axis='x', labelsize=15, pad=10)
@@ -77,15 +77,15 @@ def visualize_cumulative_hazard(naf, title, path=None):
         plt.close(fig)
 
 
-def visualize_cumulative_density(ajf, title, path=None):
+def visualize_cumulative_hazard(model, title, path=None):
 
     """
-    Visualize cumulative density of the given Aalen-Johansen fitter
+    Visualize cumulative hazard of the given model
 
     Parameters
     ----------
-    ajf: lifelines.AalenJohansenFitter
-        Aalen-Johansen fitter fit on dataset
+    model: lifelines.BaseFitter
+        Lifelines model fit on dataset
 
     title: str
         Title of the plot
@@ -95,13 +95,83 @@ def visualize_cumulative_density(ajf, title, path=None):
     """
 
     fig, ax = plt.subplots(figsize=(32, 12))
-    ajf.plot_cumulative_density(ax=ax)
+    model.plot_cumulative_hazard(ax=ax)
+    ax.set_xlabel('Timeline', size=20, labelpad=15)
+    ax.set_ylabel('Hazard', size=20, labelpad=15)
+    ax.tick_params(axis='x', labelsize=15, pad=10)
+    ax.tick_params(axis='y', labelsize=15, pad=10)
+    ax.set_title(title, size=20, pad=15)
+    ax.legend(loc='best', prop={'size': 18})
+
+    if path is None:
+        plt.show()
+    else:
+        plt.savefig(path)
+        plt.close(fig)
+
+
+def visualize_cumulative_density(model, title, path=None):
+
+    """
+    Visualize cumulative density of the given model
+
+    Parameters
+    ----------
+    model: lifelines.BaseFitter
+        Lifelines model fit on dataset
+
+    title: str
+        Title of the plot
+
+    path: path-like str or None
+        Path of the output file or None (if path is None, plot is displayed with selected backend)
+    """
+
+    fig, ax = plt.subplots(figsize=(32, 12))
+    model.plot_cumulative_density(ax=ax)
     ax.set_xlabel('Timeline', size=20, labelpad=15)
     ax.set_ylabel('Density', size=20, labelpad=15)
     ax.tick_params(axis='x', labelsize=15, pad=10)
     ax.tick_params(axis='y', labelsize=15, pad=10)
     ax.set_title(title, size=20, pad=15)
     ax.legend(loc='best', prop={'size': 18})
+
+    if path is None:
+        plt.show()
+    else:
+        plt.savefig(path)
+        plt.close(fig)
+
+
+def visualize_target(df, target, path=None):
+
+    """
+    Visualize cumulative density of the given Aalen-Johansen fitter
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Dataframe with efs_time, efs and target columns
+
+    target: str
+        Name of the target column
+
+    path: path-like str or None
+        Path of the output file or None (if path is None, plot is displayed with selected backend)
+    """
+
+    fig, axes = plt.subplots(figsize=(24, 20), nrows=2, dpi=100)
+    axes[0].hist(df.loc[df['efs'] == 0, 'efs_time'], bins=32, alpha=0.6, label='EFS 0')
+    axes[0].hist(df.loc[df['efs'] == 1, 'efs_time'], bins=32, alpha=0.6, label='EFS 1')
+    axes[1].hist(df.loc[df['efs'] == 0, target], bins=32, alpha=0.6, label='EFS 0')
+    axes[1].hist(df.loc[df['efs'] == 1, target], bins=32, alpha=0.6, label='EFS 1')
+    for ax in axes:
+        ax.tick_params(axis='x', labelsize=15, pad=10)
+        ax.tick_params(axis='y', labelsize=15, pad=10)
+    axes[0].legend(loc='best', prop={'size': 18})
+    axes[1].legend(loc='best', prop={'size': 18})
+    axes[0].set_title('efs_time Histogram', size=20, pad=15)
+    axes[1].set_title(f'{target} Histogram', size=20, pad=15)
 
     if path is None:
         plt.show()

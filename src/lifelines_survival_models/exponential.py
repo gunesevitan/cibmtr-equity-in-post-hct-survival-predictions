@@ -62,7 +62,6 @@ if __name__ == '__main__':
         visualization.visualize_target(
             df=df,
             target=target,
-            title=f'Target {target}',
             path=model_directory / f'{target}.png'
         )
     df.loc[:, target_columns].to_csv(model_directory / 'targets.csv', index=False)

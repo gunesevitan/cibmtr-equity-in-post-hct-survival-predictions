@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     df = preprocessing.preprocess(
         df=df,
-        categorical_columns=categorical_columns
+        categorical_columns=categorical_columns, categorical_dtype=str
     )
 
     task = config['training']['task']

@@ -14,6 +14,41 @@ import metrics
 import visualization
 
 
+def load_model(model_directory):
+
+    """
+    Load trained LightGBM models from given path
+
+    Parameters
+    ----------
+    model_directory: str or pathlib.Path
+        Path-like string of the model directory
+
+    Returns
+    -------
+    config: dict
+        Dictionary of model configurations
+
+    models: dict
+        Dictionary of model file names as keys and model objects as values
+    """
+
+    models = {}
+
+    for model_path in sorted(list(model_directory.glob('model*'))):
+        model_path = str(model_path)
+        model = lgb.Booster(model_file=model_path)
+        model_file_name = model_path.split('/')[-1].split('.')[0]
+        models[model_file_name] = model
+        settings.logger.info(f'Loaded LightGBM model from {model_path}')
+
+    config_path = model_directory / 'config.yaml'
+    config = yaml.load(open(config_path), Loader=yaml.FullLoader)
+    settings.logger.info(f'Loaded config from {config_path}')
+
+    return config, models
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -37,18 +72,15 @@ if __name__ == '__main__':
 
     df = preprocessing.preprocess(
         df=df,
-        kaplan_meier_estimator_directory=settings.MODELS / 'kaplan_meier_estimator',
-        categorical_columns=categorical_columns,
-        transformer_directory=settings.DATA / 'transformers',
-        load_transformers=False
+        categorical_columns=categorical_columns, categorical_dtype='category'
     )
 
+    task = config['training']['task']
+    folds = config['training']['folds']
     target = config['training']['target']
     features = config['training']['features']
     categorical_features = config['training']['categorical_features']
-    folds = config['training']['folds']
     seeds = config['training']['seeds']
-    rank_transform = config['training']['rank_transform']
 
     settings.logger.info(
         f'''
@@ -74,6 +106,7 @@ if __name__ == '__main__':
             columns=folds
         )
         scores = []
+        seed_scores = {}
 
         for fold in folds:
 
@@ -126,34 +159,35 @@ if __name__ == '__main__':
                 df_feature_importance_split[fold] += pd.Series((model.feature_importance(importance_type='split') / len(seeds)), index=features)
 
                 validation_predictions = model.predict(df.loc[validation_mask, features], num_iteration=config['fit_parameters']['boosting_rounds'])
-                if rank_transform:
+                if config['training']['rank_transform']:
                     validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
                 df.loc[validation_mask, 'prediction'] += validation_predictions / len(seeds)
 
-            validation_scores = metrics.score(
-                y_true_time=df.loc[validation_mask, 'efs_time'],
-                y_true_event=df.loc[validation_mask, 'efs'],
-                y_pred=df.loc[validation_mask, 'prediction'],
-            )
-            validation_race_group_concordance_indices = []
-            for race_group, df_group in df.loc[validation_mask].groupby('race_group'):
-                group_validation_scores = metrics.score(
-                    y_true_time=df_group.loc[validation_mask, 'efs_time'],
-                    y_true_event=df_group.loc[validation_mask, 'efs'],
-                    y_pred=df_group.loc[validation_mask, 'prediction'],
+            if task == 'ranking':
+                validation_scores = metrics.ranking_score(
+                    df=df.loc[validation_mask],
+                    group_column='race_group',
+                    time_column='efs_time',
+                    event_column='efs',
+                    prediction_column='prediction'
                 )
-                validation_race_group_concordance_indices.append(group_validation_scores['concordance_index'])
-                group_validation_scores = {
-                    f'{"_".join(race_group.lower().split())}_{metric}': score
-                    for metric, score in group_validation_scores.items()
-                }
-                validation_scores.update(group_validation_scores)
-            validation_mean_concordance_index = np.mean(validation_race_group_concordance_indices)
-            validation_std_concordance_index = np.std(validation_race_group_concordance_indices)
-            validation_stratified_concordance_index = float(validation_mean_concordance_index - validation_std_concordance_index)
-            validation_scores['mean_concordance_index'] = validation_mean_concordance_index
-            validation_scores['std_concordance_index'] = validation_std_concordance_index
-            validation_scores['stratified_concordance_index'] = validation_stratified_concordance_index
+            elif task == 'classification':
+                validation_scores = metrics.classification_score(
+                    df=df.loc[validation_mask],
+                    group_column='race_group',
+                    event_column='efs',
+                    prediction_column='prediction',
+                    threshold=0.5
+                )
+            elif task == 'regression':
+                validation_scores = metrics.regression_score(
+                    df=df.loc[validation_mask],
+                    group_column='race_group',
+                    time_column=target,
+                    prediction_column='prediction'
+                )
+            else:
+                raise ValueError(f'Invalid task type {task}')
 
             settings.logger.info(f'Fold: {fold} - Validation Scores: {json.dumps(validation_scores, indent=2)}')
             scores.append(validation_scores)
@@ -171,38 +205,40 @@ if __name__ == '__main__':
             
             Fold Scores
             -----------
-            Concordance Index {scores['concordance_index'].values.tolist()}
-            Mean Concordance Index {scores['mean_concordance_index'].values.tolist()}
-            Std Concordance Index {scores['std_concordance_index'].values.tolist()}
-            Stratified Concordance Index {scores['stratified_concordance_index'].values.tolist()}
+            Micro Concordance Index: {scores['micro_concordance_index'].values.tolist() if 'micro_concordance_index' in scores else np.nan}
+            Macro Concordance Index: {scores['macro_concordance_index'].values.tolist() if 'micro_concordance_index' in scores else np.nan}
+            Std Concordance Index: {scores['std_concordance_index'].values.tolist() if 'std_concordance_index' in scores else np.nan}
+            Stratified Concordance Index: {scores['stratified_concordance_index'].values.tolist() if 'stratified_concordance_index' in scores else np.nan}
             '''
         )
 
         oof_mask = df['prediction'].notna()
-        oof_scores = metrics.score(
-            y_true_time=df.loc[oof_mask, 'efs_time'],
-            y_true_event=df.loc[oof_mask, 'efs'],
-            y_pred=-df.loc[oof_mask, 'prediction'],
-        )
-        oof_race_group_concordance_indices = []
-        for race_group, df_group in df.loc[oof_mask].groupby('race_group'):
-            group_oof_scores = metrics.score(
-                y_true_time=df_group.loc[oof_mask, 'efs_time'],
-                y_true_event=df_group.loc[oof_mask, 'efs'],
-                y_pred=df_group.loc[oof_mask, 'prediction'],
+        if task == 'ranking':
+            oof_scores = metrics.ranking_score(
+                df=df.loc[oof_mask],
+                group_column='race_group',
+                time_column='efs_time',
+                event_column='efs',
+                prediction_column='prediction'
             )
-            oof_race_group_concordance_indices.append(group_oof_scores['concordance_index'])
-            group_oof_scores = {
-                f'{"_".join(race_group.lower().split())}_{metric}': score
-                for metric, score in group_oof_scores.items()
-            }
-            oof_scores.update(group_oof_scores)
-        oof_mean_concordance_index = np.mean(oof_race_group_concordance_indices)
-        oof_std_concordance_index = np.std(oof_race_group_concordance_indices)
-        oof_stratified_concordance_index = float(oof_mean_concordance_index - oof_std_concordance_index)
-        oof_scores['mean_concordance_index'] = oof_mean_concordance_index
-        oof_scores['std_concordance_index'] = oof_std_concordance_index
-        oof_scores['stratified_concordance_index'] = oof_stratified_concordance_index
+        elif task == 'classification':
+            oof_scores = metrics.classification_score(
+                df=df.loc[oof_mask],
+                group_column='race_group',
+                event_column='efs',
+                prediction_column='prediction',
+                threshold=0.5
+            )
+        elif task == 'regression':
+            oof_scores = metrics.regression_score(
+                df=df.loc[oof_mask],
+                group_column='race_group',
+                time_column=target,
+                prediction_column='prediction'
+            )
+        else:
+            raise ValueError(f'Invalid task type {task}')
+
         settings.logger.info(f'OOF Scores: {json.dumps(oof_scores, indent=2)}')
 
         scores = pd.concat((

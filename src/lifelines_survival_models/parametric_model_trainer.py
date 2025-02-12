@@ -100,6 +100,10 @@ if __name__ == '__main__':
             df.loc[validation_mask, features],
             times=df.loc[validation_mask, time_column]
         ).to_numpy().diagonal()
+        df.loc[validation_mask, 'oof_cumulative_hazard'] = model.predict_cumulative_hazard(
+            df.loc[validation_mask, features],
+            times=df.loc[validation_mask, time_column]
+        ).to_numpy().diagonal()
 
         validation_scores = metrics.score(
             df=df.loc[validation_mask],
@@ -182,10 +186,14 @@ if __name__ == '__main__':
         df.loc[:, features],
         times=df.loc[:, time_column]
     ).to_numpy().diagonal()
+    df.loc[:, 'cumulative_hazard'] = model.predict_cumulative_hazard(
+        df.loc[:, features],
+        times=df.loc[:, time_column]
+    ).to_numpy().diagonal()
 
     prediction_columns = [
-        'survival_probability', 'risk_score',
-        'oof_survival_probability', 'oof_risk_score'
+        'survival_probability', 'cumulative_hazard', 'risk_score',
+        'oof_survival_probability', 'oof_cumulative_hazard', 'oof_risk_score'
     ]
-    df.loc[:, prediction_columns].to_csv(model_directory / 'oof_prediction.csv', index=False)
-    settings.logger.info(f'oof_prediction.csv is saved to {model_directory}')
+    df.loc[:, prediction_columns].to_csv(model_directory / 'oof_predictions.csv', index=False)
+    settings.logger.info(f'oof_predictions.csv is saved to {model_directory}')

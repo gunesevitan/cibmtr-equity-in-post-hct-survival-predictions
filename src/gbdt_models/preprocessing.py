@@ -1,18 +1,12 @@
-from pathlib import Path
-import pickle
+import sys
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import OrdinalEncoder
+
+sys.path.append('..')
+import settings
 
 
-def clean_categorical_columns(df):
-
-    df['dri_score'] = df['dri_score'].str.lower()
-
-    return df
-
-
-def encode_categorical_columns(df, categorical_columns, transformer_directory, load_transformers):
+def encode_categorical_columns(df, categorical_columns, dtype):
 
     """
     Encode given categorical columns
@@ -25,11 +19,8 @@ def encode_categorical_columns(df, categorical_columns, transformer_directory, l
     categorical_columns: list
         Array of categorical column names
 
-    transformer_directory: pathlib.Path or str
-        Directory for saving/loading transformers
-
-    load_transformers: bool
-        Whether to load precomputed transformers or not
+    dtype: str
+        Type of the categorical column
 
     Returns
     -------
@@ -37,58 +28,64 @@ def encode_categorical_columns(df, categorical_columns, transformer_directory, l
         Dataframe with encoded categorical columns
     """
 
-    Path(transformer_directory).mkdir(parents=True, exist_ok=True)
-
     for column in categorical_columns:
-
-        if load_transformers:
-
-            with open(transformer_directory / f'{column}_encoder.pickle', mode='rb') as f:
-                encoder = pickle.load(f)
-
-            df[f'{column}_encoded'] = encoder.transform(df[column].values.reshape(-1, 1))
-
-        else:
-
-            encoder = OrdinalEncoder(
-                categories='auto',
-                dtype=np.float32,
-                handle_unknown='use_encoded_value',
-                unknown_value=-1,
-                encoded_missing_value=np.nan,
-            )
-            df[f'{column}_encoded'] = encoder.fit_transform(df[column].values.reshape(-1, 1))
-
-            with open(transformer_directory / f'{column}_encoder.pickle', mode='wb') as f:
-                pickle.dump(encoder, f)
+        df[column] = df[column].astype(dtype)
 
     return df
 
 
-def load_kaplan_meier_outputs(df, kaplan_meier_estimator_directory):
+def create_targets(df):
 
-    df_survival_probabilities = pd.read_csv(kaplan_meier_estimator_directory / 'survival_probabilities.csv')
+    """
+    Create targets on given dataframe
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Dataframe with raw targets
+
+    Returns
+    -------
+    df: pandas.DataFrame
+        Dataframe with additional targets
+    """
+
+    df['log_efs_time'] = np.log(df['efs_time'])
+
+    df_kaplan_meier = pd.read_csv(settings.MODELS / 'kaplan_meier' / 'targets.csv')
     df = pd.concat((
         df,
-        df_survival_probabilities
+        df_kaplan_meier
     ), axis=1, ignore_index=False)
+    df['log_survival_probability'] = np.log(df['survival_probability'])
 
     return df
 
 
-def preprocess(
-    df,
-    categorical_columns, transformer_directory, load_transformers,
-    kaplan_meier_estimator_directory
-):
+def preprocess(df, categorical_columns, categorical_dtype):
 
-    df = load_kaplan_meier_outputs(df=df, kaplan_meier_estimator_directory=kaplan_meier_estimator_directory)
-    df = clean_categorical_columns(df=df)
-    df = encode_categorical_columns(
-        df=df,
-        categorical_columns=categorical_columns,
-        transformer_directory=transformer_directory,
-        load_transformers=load_transformers
-    )
+    """
+    Preprocess given dataframe for training LightGBM model
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Dataframe with raw targets
+
+    categorical_columns: list
+        Array of categorical column names
+
+    dtype: str
+        Type of the categorical column
+
+    Returns
+    -------
+    df: pandas.DataFrame
+        Preprocessed dataframe
+    """
+
+    df = df.fillna(np.nan)
+    df = create_targets(df=df)
+    df = encode_categorical_columns(df=df, categorical_columns=categorical_columns, dtype=categorical_dtype)
 
     return df

@@ -114,7 +114,6 @@ if __name__ == '__main__':
 
             training_mask = df[f'fold{fold}'] == 0
             validation_mask = df[f'fold{fold}'] == 1
-
             df.loc[validation_mask, 'prediction'] = 0.
 
             settings.logger.info(
@@ -130,12 +129,14 @@ if __name__ == '__main__':
                 training_dataset = cb.Pool(
                     df.loc[training_mask, features],
                     label=df.loc[training_mask, target],
-                    cat_features=categorical_features
+                    cat_features=categorical_features,
+                    weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None
                 )
                 validation_dataset = cb.Pool(
                     df.loc[validation_mask, features],
                     label=df.loc[validation_mask, target],
-                    cat_features=categorical_features
+                    cat_features=categorical_features,
+                    weight=df.loc[validation_mask, 'weight'] if config['training']['sample_weight'] else None
                 )
 
                 config['model_parameters']['random_seed'] = seed

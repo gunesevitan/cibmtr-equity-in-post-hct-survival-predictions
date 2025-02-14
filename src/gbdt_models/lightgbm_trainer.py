@@ -112,7 +112,6 @@ if __name__ == '__main__':
 
             training_mask = df[f'fold{fold}'] == 0
             validation_mask = df[f'fold{fold}'] == 1
-
             df.loc[validation_mask, 'prediction'] = 0.
 
             settings.logger.info(
@@ -128,12 +127,14 @@ if __name__ == '__main__':
                 training_dataset = lgb.Dataset(
                     df.loc[training_mask, features],
                     label=df.loc[training_mask, target],
-                    categorical_feature=categorical_features
+                    categorical_feature=categorical_features,
+                    weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None
                 )
                 validation_dataset = lgb.Dataset(
                     df.loc[validation_mask, features],
                     label=df.loc[validation_mask, target],
-                    categorical_feature=categorical_features
+                    categorical_feature=categorical_features,
+                    weight=df.loc[validation_mask, 'weight'] if config['training']['sample_weight'] else None
                 )
 
                 config['model_parameters']['seed'] = seed
@@ -202,13 +203,6 @@ if __name__ == '__main__':
             Standard Deviations
             -------------------
             ±{json.dumps(scores.std(axis=0).to_dict(), indent=2)}
-            
-            Fold Scores
-            -----------
-            Micro Concordance Index: {scores['micro_concordance_index'].values.tolist() if 'micro_concordance_index' in scores else np.nan}
-            Macro Concordance Index: {scores['macro_concordance_index'].values.tolist() if 'micro_concordance_index' in scores else np.nan}
-            Std Concordance Index: {scores['std_concordance_index'].values.tolist() if 'std_concordance_index' in scores else np.nan}
-            Stratified Concordance Index: {scores['stratified_concordance_index'].values.tolist() if 'stratified_concordance_index' in scores else np.nan}
             '''
         )
 

@@ -32,7 +32,7 @@ def objective(trial):
         'data_random_seed': None,
         'deterministic': False,
         'max_depth': -1,
-        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 5, 50),
+        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 5, 100, step=5),
         'min_sum_hessian_in_leaf': 0.,
         'bagging_fraction': trial.suggest_float('bagging_fraction', 0.2, 1.0, step=0.05),
         'bagging_freq': 1,
@@ -43,11 +43,11 @@ def objective(trial):
         'lambda_l2': trial.suggest_categorical('lambda_l2', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
         'linear_lambda': 0.,
         'min_gain_to_split': 0.,
-        'min_data_per_group': 150,
-        'max_cat_threshold': 64,
-        'cat_l2': 10,
-        'cat_smooth': 10,
-        'max_cat_to_onehot': 4,
+        'min_data_per_group': trial.suggest_int('min_data_per_group', 5, 100, step=5),
+        'max_cat_threshold': trial.suggest_categorical('max_cat_threshold', [4, 8, 16, 32, 64, 128]),
+        'cat_l2': trial.suggest_categorical('cat_l2', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
+        'cat_smooth': trial.suggest_categorical('cat_smooth', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
+        'max_cat_to_onehot': trial.suggest_categorical('max_cat_to_onehot', [4, 8, 16, 32, 64, 128]),
         'path_smooth': 0.,
         'max_bin': trial.suggest_categorical('max_bin', [255, 384, 512]),
         'min_data_in_bin': 3,
@@ -80,6 +80,10 @@ def objective(trial):
             )
 
             parameters['seed'] = seed
+            parameters['feature_fraction_seed'] = seed
+            parameters['bagging_seed'] = seed
+            parameters['drop_seed'] = seed
+            parameters['data_random_seed'] = seed
 
             model = lgb.train(
                 params=parameters,
@@ -91,7 +95,7 @@ def objective(trial):
                 ]
             )
 
-            validation_predictions = model.predict(df.loc[validation_mask, features])
+            validation_predictions = model.predict(df.loc[validation_mask, features], num_iteration=1500)
             if config['training']['rank_transform']:
                 validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
             df.loc[validation_mask, 'prediction'] += validation_predictions / len(seeds)
@@ -168,7 +172,7 @@ if __name__ == '__main__':
             load_if_exists=True,
             direction='maximize'
         )
-        study.optimize(objective, n_trials=1000)
+        study.optimize(objective, n_trials=500)
     except KeyboardInterrupt:
         settings.logger.info('Interrupted')
     finally:

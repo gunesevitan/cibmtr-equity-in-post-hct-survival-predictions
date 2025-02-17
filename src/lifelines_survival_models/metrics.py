@@ -39,7 +39,7 @@ def score(df, group_column, time_column, event_column, prediction_column):
     }
 
     group_scores = []
-    for group, df_group in df.groupby(group_column):
+    for group, df_group in df.groupby(group_column, observed=True):
         group_score = concordance_index(
             event_times=df_group[time_column],
             predicted_scores=-df_group[prediction_column],

@@ -43,7 +43,7 @@ def ranking_score(df, group_column, time_column, event_column, prediction_column
     }
 
     group_scores = []
-    for group, df_group in df.groupby(group_column):
+    for group, df_group in df.groupby(group_column, observed=True):
         group_score = concordance_index(
             event_times=df_group[time_column],
             predicted_scores=-df_group[prediction_column],
@@ -101,7 +101,7 @@ def classification_score(df, group_column, event_column, prediction_column, thre
         'f1': f1_score(df[event_column], labels)
     }
 
-    for group, df_group in df.groupby(group_column):
+    for group, df_group in df.groupby(group_column, observed=True):
         group_probabilities = df_group[prediction_column].values
         group_labels = np.zeros_like(group_probabilities, dtype=np.uint8)
         group_labels[group_probabilities >= threshold] = 1
@@ -147,7 +147,7 @@ def regression_score(df, group_column, time_column, prediction_column):
         'mean_absolute_percentage_error': mean_absolute_percentage_error(df[time_column] + 1, df[prediction_column] + 1),
     }
 
-    for group, df_group in df.groupby(group_column):
+    for group, df_group in df.groupby(group_column, observed=True):
         group_scores = {
             'mean_squared_error': mean_squared_error(df_group[time_column], df_group[prediction_column]),
             'mean_absolute_error': mean_absolute_error(df_group[time_column], df_group[prediction_column]),

@@ -39,12 +39,9 @@ def one_hot_encode_categorical_columns(df, categorical_columns, transformer_dire
             with open(transformer_directory / f'{column}_encoder.pickle', mode='rb') as f:
                 encoder = pickle.load(f)
 
-            df_column_encoded = pd.DataFrame(
-                encoder.transform(df[column].values.reshape(-1, 1)),
-                columns=[f'{column}_{category}' for category in encoder.categories_[0]]
-            )
-
-            df = pd.concat((df, df_column_encoded), axis=1, ignore_index=False)
+            encoded = encoder.fit_transform(df[column].values.reshape(-1, 1))
+            encoded = pd.DataFrame(encoded, columns=encoder.get_feature_names_out([column]), index=df.index)
+            df = pd.concat((df, encoded), axis=1, ignore_index=False)
 
         else:
 
@@ -53,14 +50,12 @@ def one_hot_encode_categorical_columns(df, categorical_columns, transformer_dire
                 drop=None,
                 sparse_output=False,
                 dtype=np.uint8,
-                handle_unknown='error'
+                handle_unknown='ignore',
+                min_frequency=128
             )
-            encoder.fit(df[column].values.reshape(-1, 1))
-            df_column_encoded = pd.DataFrame(
-                encoder.transform(df[column].values.reshape(-1, 1)),
-                columns=[f'{column}_{category}' for category in encoder.categories_[0]]
-            )
-            df = pd.concat((df, df_column_encoded), axis=1, ignore_index=False)
+            encoded = encoder.fit_transform(df[column].values.reshape(-1, 1))
+            encoded = pd.DataFrame(encoded, columns=encoder.get_feature_names_out([column]), index=df.index)
+            df = pd.concat((df, encoded), axis=1, ignore_index=False)
 
             with open(transformer_directory / f'{column}_one_hot_encoder.pickle', mode='wb') as f:
                 pickle.dump(encoder, f)
@@ -149,14 +144,12 @@ def preprocess(
     """
 
     df = df.fillna(np.nan)
-
     df = one_hot_encode_categorical_columns(
         df=df,
         categorical_columns=categorical_columns,
         transformer_directory=transformer_directory,
         load_transformers=load_transformers
     )
-
     df = normalize_continuous_columns(
         df=df,
         continuous_columns=continuous_columns,

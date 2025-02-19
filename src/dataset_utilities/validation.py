@@ -85,10 +85,13 @@ if __name__ == '__main__':
     df = pd.read_parquet(settings.DATA / 'datasets' / 'dataset.parquet')
     settings.logger.info(f'Dataset Shape: {df.shape}')
 
-    n_splits = 5
+    time_bin = (np.log1p(df['efs_time']).clip(1, 4) // 0.5).astype(int).astype(str)
+    df['time_bin'] = time_bin
+
+    n_splits = 7
     df = create_folds(
         df=df,
-        stratify_columns=['race_group', 'efs'],
+        stratify_columns=['race_group', 'efs', 'time_bin'],
         n_splits=n_splits,
         shuffle=True,
         random_state=60,

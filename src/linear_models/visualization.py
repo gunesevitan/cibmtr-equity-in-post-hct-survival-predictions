@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import auc
 import matplotlib.pyplot as plt
 
 
@@ -19,7 +20,7 @@ def visualize_feature_importance(df_feature_importance, title, path=None):
         Path of the output file or None (if path is None, plot is displayed with selected backend)
     """
 
-    fig, ax = plt.subplots(figsize=(24, 60), dpi=100)
+    fig, ax = plt.subplots(figsize=(24, df_feature_importance.shape[0] // 3), dpi=100)
     ax.barh(
         range(len(df_feature_importance)),
         df_feature_importance['mean'],
@@ -98,6 +99,148 @@ def visualize_scores(scores, title, path=None):
     ax.tick_params(axis='y', labelsize=15, pad=10)
     ax.set_title(title, size=20, pad=15)
     ax.legend(loc='best', prop={'size': 18})
+
+    if path is None:
+        plt.show()
+    else:
+        plt.savefig(path)
+        plt.close(fig)
+
+
+def visualize_roc_curves(roc_curves, title, path=None):
+
+    """
+    Visualize ROC curves of the model(s)
+
+    Parameters
+    ----------
+    roc_curves: array-like of shape (n_splits, 3)
+        List of ROC curves (tuple of false positive rates, true positive rates and thresholds)
+
+    title: str
+        Title of the plot
+
+    path: path-like str or None
+        Path of the output file or None (if path is None, plot is displayed with selected backend)
+    """
+
+    true_positive_rates_interpolated = []
+    aucs = []
+    mean_false_positive_rate = np.linspace(0, 1, 100)
+
+    fig, ax = plt.subplots(figsize=(16, 16))
+
+    # Plot random guess curve
+    ax.plot([0, 1], [0, 1], linestyle='--', lw=2.5, color='r', alpha=0.75)
+
+    # Plot individual ROC curves of multiple models
+    for fprs, tprs, _ in roc_curves:
+        true_positive_rates_interpolated.append(np.interp(mean_false_positive_rate, fprs, tprs))
+        true_positive_rates_interpolated[-1][0] = 0.0
+        roc_auc = auc(fprs, tprs)
+        aucs.append(roc_auc)
+        ax.plot(fprs, tprs, lw=1, alpha=0.1)
+
+    # Plot mean ROC curve of N models
+    mean_true_positive_rate = np.mean(true_positive_rates_interpolated, axis=0)
+    mean_true_positive_rate[-1] = 1.0
+    mean_auc = auc(mean_false_positive_rate, mean_true_positive_rate)
+    std_auc = np.std(aucs)
+    ax.plot(mean_false_positive_rate, mean_true_positive_rate, color='b', label=f'Mean ROC Curve (AUC: {mean_auc:.4f} ±{std_auc:.4f})', lw=2.5, alpha=0.9)
+    best_threshold_idx = np.argmax(mean_true_positive_rate - mean_false_positive_rate)
+    ax.scatter(
+        [mean_false_positive_rate[best_threshold_idx]], [mean_true_positive_rate[best_threshold_idx]],
+        marker='o',
+        color='r',
+        s=100,
+        label=f'Best Threshold\nSensitivity: {mean_true_positive_rate[best_threshold_idx]:.4f}\nSpecificity {mean_false_positive_rate[best_threshold_idx]:.4f}'
+    )
+
+    # Plot confidence interval of ROC curves
+    std_tpr = np.std(true_positive_rates_interpolated, axis=0)
+    tprs_upper = np.minimum(mean_true_positive_rate + std_tpr, 1)
+    tprs_lower = np.maximum(mean_true_positive_rate - std_tpr, 0)
+    ax.fill_between(mean_false_positive_rate, tprs_lower, tprs_upper, color='grey', alpha=0.2, label='±1 sigma')
+
+    ax.set_xlabel('False Positive Rate', size=15, labelpad=12)
+    ax.set_ylabel('True Positive Rate', size=15, labelpad=12)
+    ax.tick_params(axis='x', labelsize=15)
+    ax.tick_params(axis='y', labelsize=15)
+    ax.set_xlim([-0.05, 1.05])
+    ax.set_ylim([-0.05, 1.05])
+    ax.set_title(title, size=20, pad=15)
+    ax.legend(loc='lower right', prop={'size': 14})
+
+    if path is None:
+        plt.show()
+    else:
+        plt.savefig(path)
+        plt.close(fig)
+
+
+def visualize_pr_curves(pr_curves, title, path=None):
+
+    """
+    Visualize PR curves of the model(s)
+
+    Parameters
+    ----------
+    pr_curves: array-like of shape (n_splits, 3)
+        List of PR curves (tuple of precision, recall and thresholds)
+
+    title: str
+        Title of the plot
+
+    path: path-like str or None
+        Path of the output file or None (if path is None, plot is displayed with selected backend)
+    """
+
+    precisions_interpolated = []
+    aucs = []
+    mean_recall = np.linspace(0, 1, 100)
+
+    fig, ax = plt.subplots(figsize=(16, 16))
+
+    # Plot individual PR curves of multiple models
+    for precisions, recalls, _ in pr_curves:
+        precisions_interpolated.append(np.interp(mean_recall, 1 - recalls, precisions)[::-1])
+        precisions_interpolated[-1][0] = 0.0
+        precisions_interpolated[-1][0] = 1 - precisions_interpolated[-1][0]
+        pr_auc = auc(recalls, precisions)
+        aucs.append(pr_auc)
+        ax.plot(recalls, precisions, lw=1, alpha=0.1)
+
+    # Plot mean PR curve of N models
+    mean_precision = np.mean(precisions_interpolated, axis=0)
+    mean_precision[-1] = 0
+    mean_auc = auc(mean_recall, mean_precision)
+    std_auc = np.std(aucs)
+    ax.plot(mean_recall, mean_precision, color='b', label=f'Mean PR Curve (AUC: {mean_auc:.4f} ±{std_auc:.4f})', lw=2.5, alpha=0.9)
+
+    f1_scores = 2 * mean_recall * mean_precision / (mean_recall + mean_precision)
+    best_threshold_idx = np.argmax(f1_scores)
+    ax.scatter(
+        [mean_recall[best_threshold_idx]], [mean_precision[best_threshold_idx]],
+        marker='o',
+        color='r',
+        s=100,
+        label=f'Best Threshold\nRecall: {mean_recall[best_threshold_idx]:.4f}\nPrecision {mean_precision[best_threshold_idx]:.4f}'
+    )
+
+    # Plot confidence interval of PR curves
+    std_tpr = np.std(precisions_interpolated, axis=0)
+    tprs_upper = np.minimum(mean_precision + std_tpr, 1)
+    tprs_lower = np.maximum(mean_precision - std_tpr, 0)
+    ax.fill_between(mean_recall, tprs_lower, tprs_upper, color='grey', alpha=0.2, label='±1 sigma')
+
+    ax.set_xlabel('Recall', size=15, labelpad=12)
+    ax.set_ylabel('Precision', size=15, labelpad=12)
+    ax.tick_params(axis='x', labelsize=15)
+    ax.tick_params(axis='y', labelsize=15)
+    ax.set_xlim([-0.05, 1.05])
+    ax.set_ylim([-0.05, 1.05])
+    ax.set_title(title, size=20, pad=15)
+    ax.legend(loc='lower right', prop={'size': 14})
 
     if path is None:
         plt.show()

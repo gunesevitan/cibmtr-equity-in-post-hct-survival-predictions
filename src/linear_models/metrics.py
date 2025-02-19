@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import (
-    log_loss, roc_auc_score,
+    log_loss, roc_auc_score, roc_curve, precision_recall_curve,
     mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 )
 from lifelines.utils import concordance_index
@@ -113,6 +113,37 @@ def classification_score(df, group_column, event_column, prediction_column, weig
         scores.update(group_scores)
 
     return scores
+
+
+def classification_curves(df, event_column, prediction_column):
+
+    """
+    Calculate binary classification curves on predicted probabilities
+
+    Parameters
+    ----------
+    df: pandas.DataFrame of shape (n_samples, 3)
+        Dataframe with group, event and prediction columns
+
+    event_column: str
+        Name of the binary event column
+
+    prediction_column: str
+        Name of the prediction column
+
+    Returns
+    -------
+    curves: dict of {metric: curve}
+        Dictionary of metrics and curves
+    """
+
+    curves = {
+        'roc': roc_curve(df[event_column], df[prediction_column]),
+        'pr': precision_recall_curve(df[event_column], df[prediction_column]),
+    }
+
+    return curves
+
 
 
 def regression_score(df, group_column, time_column, prediction_column):

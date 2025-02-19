@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import (
-    accuracy_score, roc_auc_score, f1_score,
+    log_loss, roc_auc_score,
     mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 )
 from lifelines.utils import concordance_index
@@ -63,7 +63,7 @@ def ranking_score(df, group_column, time_column, event_column, prediction_column
     return scores
 
 
-def classification_score(df, group_column, event_column, prediction_column, threshold=0.5):
+def classification_score(df, group_column, event_column, prediction_column, weight_column=None):
 
     """
     Calculate global and group-wise classification scores
@@ -82,8 +82,8 @@ def classification_score(df, group_column, event_column, prediction_column, thre
     prediction_column: str
         Name of the prediction column
 
-    threshold: float
-        Threshold for converting probabilities into labels
+    weight_column: str or None
+        Name of the weight column
 
     Returns
     -------
@@ -91,24 +91,23 @@ def classification_score(df, group_column, event_column, prediction_column, thre
         Dictionary of metrics and scores
     """
 
-    probabilities = df[prediction_column].values
-    labels = np.zeros_like(probabilities, dtype=np.uint8)
-    labels[probabilities >= threshold] = 1
-
     scores = {
-        'accuracy': accuracy_score(df[event_column], labels),
+        'log_loss': log_loss(
+            df[event_column],
+            df[prediction_column],
+            sample_weight=df[weight_column] if weight_column is not None else None
+        ),
         'roc_auc': roc_auc_score(df[event_column], df[prediction_column]),
-        'f1': f1_score(df[event_column], labels)
     }
 
     for group, df_group in df.groupby(group_column, observed=True):
-        group_probabilities = df_group[prediction_column].values
-        group_labels = np.zeros_like(group_probabilities, dtype=np.uint8)
-        group_labels[group_probabilities >= threshold] = 1
         group_scores = {
-            'accuracy': accuracy_score(df_group[event_column], group_labels),
+            'log_loss': log_loss(
+                df_group[event_column],
+                df_group[prediction_column],
+                sample_weight=df_group[weight_column] if weight_column is not None else None
+            ),
             'roc_auc': roc_auc_score(df_group[event_column], df_group[prediction_column]),
-            'f1': f1_score(df_group[event_column], group_labels)
         }
         group_scores = {f'{"_".join(group.lower().split())}_{k}': v for k, v in group_scores.items()}
         scores.update(group_scores)

@@ -2,7 +2,7 @@ from pathlib import Path
 import pickle
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
 
 def one_hot_encode_categorical_columns(df, categorical_columns, transformer_directory, load_transformers=False):
@@ -58,6 +58,62 @@ def one_hot_encode_categorical_columns(df, categorical_columns, transformer_dire
             df = pd.concat((df, encoded), axis=1, ignore_index=False)
 
             with open(transformer_directory / f'{column}_one_hot_encoder.pickle', mode='wb') as f:
+                pickle.dump(encoder, f)
+
+    return df
+
+
+def ordinal_encode_categorical_columns(df, categorical_columns, transformer_directory, load_transformers=False):
+
+    """
+    Ordinal encode given categorical columns and concatenate them to given dataframe
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Dataframe with categorical columns
+
+    categorical_columns: list
+        List of categorical columns
+
+    transformer_directory: str or pathlib.Path
+        Path of the serialized transformers
+
+    load_transformers: bool
+        Whether to load transformers from the given transformer directory or not
+
+    Returns
+    -------
+    df: pandas.DataFrame
+        Dataframe with encoded categorical columns
+    """
+
+    Path(transformer_directory).mkdir(parents=True, exist_ok=True)
+
+    for column in categorical_columns:
+
+        column_dtype = df[column].dtype
+        fill_value = 'missing' if column_dtype == object else -1
+
+        if load_transformers:
+
+            with open(transformer_directory / f'{column}_ordinal_encoder.pickle', mode='rb') as f:
+                encoder = pickle.load(f)
+
+            df[f'{column}_encoded'] = encoder.transform(df[column].fillna(fill_value).values.reshape(-1, 1))
+
+        else:
+
+            encoder = OrdinalEncoder(
+                categories='auto',
+                dtype=np.int32,
+                handle_unknown='use_encoded_value',
+                unknown_value=-1,
+                encoded_missing_value=np.nan,
+            )
+            df[f'{column}_encoded'] = encoder.fit_transform(df[column].fillna(fill_value).values.reshape(-1, 1))
+
+            with open(transformer_directory / f'{column}_ordinal_encoder.pickle', mode='wb') as f:
                 pickle.dump(encoder, f)
 
     return df
@@ -233,6 +289,12 @@ def preprocess(
         df = load_efs_predictions(df=df, efs_predictions_path=efs_predictions_path)
     df = create_sample_weights(df=df, efs_weight=efs_weight)
     df = one_hot_encode_categorical_columns(
+        df=df,
+        categorical_columns=categorical_columns,
+        transformer_directory=transformer_directory,
+        load_transformers=load_transformers
+    )
+    df = ordinal_encode_categorical_columns(
         df=df,
         categorical_columns=categorical_columns,
         transformer_directory=transformer_directory,

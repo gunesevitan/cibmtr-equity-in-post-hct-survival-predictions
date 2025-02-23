@@ -1,66 +1,80 @@
 import sys
 import json
 import pandas as pd
-import matplotlib.pyplot as plt
 
 sys.path.append('..')
 import settings
 import metrics
+import visualization
 
 
-def visualize_target(df, path=None):
+def load_oof_predictions(model_directory):
 
     """
-    Visualize predictions
+    Load oof predictions of a trained model from the given model directory
 
     Parameters
     ----------
-    df: pandas.DataFrame
-        Dataframe with efs_time, efs and target columns
+    model_directory: str or pathlib.Path
+        Model directory relative to root/models
 
-    target: str
-        Name of the target column
-
-    path: path-like str or None
-        Path of the output file or None (if path is None, plot is displayed with selected backend)
+    Returns
+    -------
+    df_oof_predictions: pandas.DataFrame
+        Dataframe with oof predictions
     """
 
-    fig, axes = plt.subplots(figsize=(24, 20), nrows=2, dpi=100)
-    axes[0].hist(df.loc[df['efs'] == 0, 'efs_prediction'], bins=32, alpha=0.6, label='EFS 0 Predictions')
-    axes[0].hist(df.loc[df['efs'] == 1, 'efs_prediction'], bins=32, alpha=0.6, label='EFS 1 Predictions')
-    axes[1].hist(df.loc[df['efs'] == 0, 'efs'], bins=32, alpha=0.6, label='EFS 0')
-    axes[1].hist(df.loc[df['efs'] == 1, 'efs'], bins=32, alpha=0.6, label='EFS 1')
-    for ax in axes:
-        ax.tick_params(axis='x', labelsize=15, pad=10)
-        ax.tick_params(axis='y', labelsize=15, pad=10)
-    axes[0].legend(loc='best', prop={'size': 18})
-    axes[1].legend(loc='best', prop={'size': 18})
-    axes[0].set_title('efs_time Histogram', size=20, pad=15)
-    axes[1].set_title(f'Target Histogram', size=20, pad=15)
+    df_oof_predictions = pd.read_csv(settings.MODELS / model_directory / 'oof_predictions.csv').rename(columns={
+        'prediction': f'{str(model_directory)}_prediction'
+    })
 
-    if path is None:
-        plt.show()
-    else:
-        plt.savefig(path)
-        plt.close(fig)
+    return df_oof_predictions
 
 
 if __name__ == '__main__':
 
-    df = pd.read_parquet(settings.DATA / 'datasets' / 'dataset.parquet')
+    model_directory = settings.MODELS / 'ensemble'
+    model_directory.mkdir(parents=True, exist_ok=True)
 
-    df_lgb_efs_classifier = pd.read_csv(settings.MODELS / 'lightgbm_efs_binary_classifier' / 'oof_predictions.csv').rename(columns={'prediction': 'lgb_efs_prediction'})
-    df_cb_efs_classifier = pd.read_csv(settings.MODELS / 'catboost_efs_binary_classifier' / 'oof_predictions.csv').rename(columns={'prediction': 'cb_efs_prediction'})
+    df = pd.read_parquet(settings.DATA / 'datasets' / 'dataset.parquet')
+    settings.logger.info(f'Raw Dataset Shape {df.shape}')
+
+    df_lr_efs = load_oof_predictions('logistic_regression_efs')
+    df_hgbm_efs = load_oof_predictions('hist_gradient_boosting_classifier_efs')
+    df_lgb_efs = load_oof_predictions('lightgbm_efs_binary_classifier')
+    df_xgb_efs = load_oof_predictions('xgboost_efs_binary_classifier')
+    df_cb_efs = load_oof_predictions('catboost_efs_binary_classifier')
+    df_mlp_sparse_efs = load_oof_predictions('mlp_sparse_efs_binary_classifier')
+    df_mlp_embeddings_efs = load_oof_predictions('mlp_embeddings_efs_binary_classifier')
     df = pd.concat((
         df,
-        df_lgb_efs_classifier,
-        df_cb_efs_classifier
+        df_lr_efs,
+        df_hgbm_efs,
+        df_lgb_efs,
+        df_xgb_efs,
+        df_cb_efs,
+        df_mlp_sparse_efs,
+        df_mlp_embeddings_efs
     ), axis=1)
 
-    prediction_columns = ['lgb_efs_prediction', 'cb_efs_prediction']
+    prediction_columns = [
+        'logistic_regression_efs_prediction',
+        'hist_gradient_boosting_classifier_efs_prediction',
+        'lightgbm_efs_binary_classifier_prediction',
+        'xgboost_efs_binary_classifier_prediction',
+        'catboost_efs_binary_classifier_prediction',
+        'mlp_sparse_efs_binary_classifier_prediction',
+        'mlp_embeddings_efs_binary_classifier_prediction'
+    ]
+
+    visualization.visualize_correlations(
+        df=df,
+        columns=prediction_columns,
+        title='Classifier Predictions Correlations',
+        path=model_directory / 'classifier_predictions_correlations.png'
+    )
 
     for column in prediction_columns:
-
         oof_mask = df[column].notna()
         oof_scores = metrics.classification_score(
             df=df.loc[oof_mask],
@@ -70,14 +84,22 @@ if __name__ == '__main__':
         )
         settings.logger.info(f'{column} OOF Scores: {json.dumps(oof_scores, indent=2)}')
 
-    df['efs_prediction'] = df['lgb_efs_prediction'] * 0.5 + \
-                           df['cb_efs_prediction'] * 0.5
-    df['efs_prediction_error'] = df['efs'] - df['efs_prediction']
+    df['efs_prediction'] = df['logistic_regression_efs_prediction'] * 0.05 + \
+                           df['hist_gradient_boosting_classifier_efs_prediction'] * 0.3 + \
+                           df['lightgbm_efs_binary_classifier_prediction'] * 0.15 + \
+                           df['xgboost_efs_binary_classifier_prediction'] * 0.15 + \
+                           df['catboost_efs_binary_classifier_prediction'] * 0.15 + \
+                           df['mlp_sparse_efs_binary_classifier_prediction'] * 0.1 + \
+                           df['mlp_embeddings_efs_binary_classifier_prediction'] * 0.1
 
-    visualize_target(
-        df=df,
-        path=settings.MODELS / 'ensemble' / 'efs_prediction.png'
-    )
+    df.loc[df['race_group'] == 'More than one race', 'efs_prediction'] *= 1.
+    df.loc[df['race_group'] == 'Asian', 'efs_prediction'] *= 1.
+    df.loc[df['race_group'] == 'White', 'efs_prediction'] *= 1.
+    df.loc[df['race_group'] == 'American Indian or Alaska Native', 'efs_prediction'] *= 1.
+    df.loc[df['race_group'] == 'Native Hawaiian or other Pacific Islander', 'efs_prediction'] *= 1.
+    df.loc[df['race_group'] == 'Black or African-American', 'efs_prediction'] *= 1.
+
+    df['efs_prediction_error'] = df['efs'] - df['efs_prediction']
 
     oof_mask = df['efs_prediction'].notna()
     oof_scores = metrics.classification_score(
@@ -86,9 +108,28 @@ if __name__ == '__main__':
         event_column='efs',
         prediction_column='efs_prediction'
     )
-    settings.logger.info(f'Classifier Blend OOF Scores: {json.dumps(oof_scores, indent=2)}')
+    settings.logger.info(f'EFS Classifier Blend OOF Scores: {json.dumps(oof_scores, indent=2)}')
 
-    df.loc[:, 'efs_prediction'].to_csv(settings.MODELS / 'ensemble' / 'efs_prediction.csv', index=False)
-    settings.logger.info(f'Saved efs_prediction.csv to {settings.DATA}')
+    oof_curves = metrics.classification_curves(
+        df=df.loc[oof_mask],
+        event_column='efs',
+        prediction_column='efs_prediction',
+    )
 
+    visualization.visualize_roc_curves(
+        roc_curves=[oof_curves['roc']],
+        title=f'EFS Classifier Blend Validation ROC Curves',
+        path=model_directory / 'efs_classifier_blend_roc_curves.png'
+    )
+    settings.logger.info(f'Saved efs_classifier_blend_roc_curves.png to {model_directory}')
 
+    visualization.visualize_pr_curves(
+        pr_curves=[oof_curves['pr']],
+        title=f'EFS Classifier Blend Validation PR Curves',
+        path=model_directory / 'efs_classifier_blend_pr_curves.png'
+    )
+    settings.logger.info(f'Saved efs_classifier_blend_roc_curves.png to {model_directory}')
+
+    prediction_columns = ['efs_prediction', 'efs_prediction_error']
+    df.loc[:, prediction_columns].to_csv(settings.MODELS / 'ensemble' / 'efs_predictions.csv', index=False)
+    settings.logger.info(f'Saved efs_predictions.csv to {model_directory}')

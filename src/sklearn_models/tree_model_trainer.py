@@ -117,8 +117,6 @@ if __name__ == '__main__':
             elif config['training']['target'] == 'log_km_survival_probability':
                 validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
 
-
-
         if config['training']['rank_transform']:
             validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
 

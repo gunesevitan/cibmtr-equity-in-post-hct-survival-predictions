@@ -114,8 +114,11 @@ if __name__ == '__main__':
         else:
             validation_predictions = model.predict(df.loc[validation_mask, features])
 
-        if task == 'ranking':
-            validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+        if config['training']['two_stage']:
+            if config['training']['target'] == 'log_efs_time':
+                validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+            elif config['training']['target'] == 'log_km_survival_probability':
+                validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
 
         if config['training']['rank_transform']:
             validation_predictions = pd.Series(validation_predictions).rank(pct=True).values

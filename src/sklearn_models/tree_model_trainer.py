@@ -38,6 +38,7 @@ if __name__ == '__main__':
         continuous_columns=config['dataset']['continuous_columns'],
         transformer_directory=settings.DATA / 'linear_model_transformers',
         load_transformers=False,
+        kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
         efs_predictions_path=config['dataset']['efs_predictions_path'],
         efs_weight=config['training']['efs_weight']
     )
@@ -73,7 +74,7 @@ if __name__ == '__main__':
         training_mask = df[f'fold{fold}'] == 0
         validation_mask = df[f'fold{fold}'] == 1
 
-        if task == 'ranking':
+        if config['training']['two_stage']:
             training_mask = training_mask & (df['efs'] == 1)
 
         settings.logger.info(
@@ -110,8 +111,13 @@ if __name__ == '__main__':
         else:
             validation_predictions = model.predict(df.loc[validation_mask, features])
 
-        if task == 'ranking':
-            validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+        if config['training']['two_stage']:
+            if config['training']['target'] == 'log_efs_time':
+                validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+            elif config['training']['target'] == 'log_km_survival_probability':
+                validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
+
+
 
         if config['training']['rank_transform']:
             validation_predictions = pd.Series(validation_predictions).rank(pct=True).values

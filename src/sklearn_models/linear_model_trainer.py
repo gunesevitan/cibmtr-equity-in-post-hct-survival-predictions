@@ -40,6 +40,7 @@ if __name__ == '__main__':
         transformer_directory=settings.DATA / 'linear_model_transformers',
         load_transformers=False,
         efs_predictions_path=config['dataset']['efs_predictions_path'],
+        kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
         efs_weight=config['training']['efs_weight']
     )
 

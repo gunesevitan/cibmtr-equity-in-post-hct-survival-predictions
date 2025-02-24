@@ -5,7 +5,7 @@ import yaml
 import json
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
 import optuna
 
 sys.path.append('..')
@@ -17,14 +17,14 @@ import metrics
 def objective(trial):
 
     parameters = {
-        'loss': 'log_loss',
+        'loss': trial.suggest_categorical('loss', ['squared_error', 'gamma', 'poisson']),
         'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.2, step=0.005),
         'max_iter': trial.suggest_int('max_iter', 100, 500, step=10),
         'max_leaf_nodes': trial.suggest_categorical('max_leaf_nodes', [4, 8, 12, 16, 24, 32, 48, 64, 96, 128]),
         'max_depth': trial.suggest_int('max_depth', 1, 8),
         'min_samples_leaf': trial.suggest_categorical('min_samples_leaf', [4, 8, 12, 16, 24, 32, 48, 64, 96, 128]),
         'l2_regularization': trial.suggest_categorical('l2_regularization', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
-        'max_features': trial.suggest_float('max_features', 0.2, 1.0, step=0.05),
+        'max_features': trial.suggest_float('max_features', 0.1, 1.0, step=0.05),
         'max_bins': trial.suggest_categorical('max_bins', [127, 255]),
         'interaction_cst': trial.suggest_categorical('interaction_cst', ['pairwise', 'no_interactions', None]),
         'warm_start': False,
@@ -32,7 +32,6 @@ def objective(trial):
         'scoring': 'loss',
         'validation_fraction': None,
         'random_state': None,
-        'class_weight': trial.suggest_categorical('class_weight', ['balanced', None])
     }
 
     df['prediction'] = 0.
@@ -42,11 +41,15 @@ def objective(trial):
         training_mask = df[f'fold{fold}'] == 0
         validation_mask = df[f'fold{fold}'] == 1
 
+        if config['training']['two_stage']:
+            training_mask = training_mask & (df['efs'] == 1)
+
         for seed in seeds:
 
             parameters['random_state'] = seed
 
-            model = HistGradientBoostingClassifier(**parameters)
+            #model = HistGradientBoostingClassifier(**parameters)
+            model = HistGradientBoostingRegressor(**parameters)
             model.fit(
                 X=df.loc[training_mask, features],
                 y=df.loc[training_mask, target],
@@ -58,8 +61,11 @@ def objective(trial):
             else:
                 validation_predictions = model.predict(df.loc[validation_mask, features])
 
-            if task == 'ranking':
-                validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+            if config['training']['two_stage']:
+                if config['training']['target'] == 'log_efs_time':
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+                elif config['training']['target'] == 'log_km_survival_probability':
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
 
             if config['training']['rank_transform']:
                 validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
@@ -125,6 +131,7 @@ if __name__ == '__main__':
         transformer_directory=settings.DATA / 'linear_model_transformers',
         load_transformers=False,
         efs_predictions_path=config['dataset']['efs_predictions_path'],
+        kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
         efs_weight=config['training']['efs_weight']
     )
 
@@ -140,7 +147,7 @@ if __name__ == '__main__':
             study_name=f'{model_directory.name}_study',
             storage=storage,
             load_if_exists=True,
-            direction='minimize'
+            direction='maximize'
         )
         study.optimize(objective, n_trials=300)
     except KeyboardInterrupt:

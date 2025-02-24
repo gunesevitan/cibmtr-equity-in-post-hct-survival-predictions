@@ -167,7 +167,7 @@ def normalize_continuous_columns(df, continuous_columns, transformer_directory, 
     return df
 
 
-def create_targets(df):
+def create_targets(df, efs_predictions_path, kaplan_meier_targets_path):
 
     """
     Create targets on given dataframe
@@ -176,6 +176,12 @@ def create_targets(df):
     ----------
     df: pandas.DataFrame
         Dataframe with event and time columns
+
+    efs_predictions_path: str or pathlib.Path
+        Path of the efs predictions file
+
+    kaplan_meier_targets_path: str or pathlib.Path
+        Path of the kaplan-meier targets file
 
     Returns
     -------
@@ -187,7 +193,30 @@ def create_targets(df):
     df['inverted_efs_time'] = df['efs_time'].values
     df.loc[df['efs'] == 0, 'inverted_efs_time'] *= -1
 
+    if efs_predictions_path is not None:
+        df = pd.concat((
+            df,
+            pd.read_csv(efs_predictions_path).rename(columns={
+                'prediction': 'efs_prediction'
+            })
+        ), axis=1, ignore_index=False)
+
+    if kaplan_meier_targets_path is not None:
+        df_kaplan_meier = pd.read_csv(kaplan_meier_targets_path).rename(columns={
+            'survival_probability': 'km_survival_probability'
+        })
+        df = pd.concat((
+            df,
+            df_kaplan_meier
+        ), axis=1, ignore_index=False)
+
+        df['log_km_survival_probability'] = np.log1p(df['km_survival_probability'])
+        df['log_km_survival_probability'] -= df['log_km_survival_probability'].min()
+        df['log_km_survival_probability'] /= df['log_km_survival_probability'].max()
+        df['log_km_survival_probability'] += 1e-6
+
     return df
+
 
 def create_sample_weights(df, efs_weight):
 
@@ -214,40 +243,11 @@ def create_sample_weights(df, efs_weight):
     return df
 
 
-def load_efs_predictions(df, efs_predictions_path):
-
-    """
-    Create sample weights on given dataframe
-
-    Parameters
-    ----------
-    df: pandas.DataFrame
-        Dataframe with raw targets
-
-    efs_predictions_path: str or pathlib.Path
-        Path of the efs predictions file
-
-    Returns
-    -------
-    df: pandas.DataFrame
-        Dataframe with efs predictions
-    """
-
-    df = pd.concat((
-        df,
-        pd.read_csv(efs_predictions_path).rename(columns={
-            'prediction': 'efs_prediction'
-        })
-    ), axis=1, ignore_index=False)
-
-    return df
-
-
 def preprocess(
         df,
         categorical_columns, continuous_columns,
         transformer_directory, load_transformers,
-        efs_predictions_path,
+        efs_predictions_path, kaplan_meier_targets_path,
         efs_weight
 ):
 
@@ -274,6 +274,9 @@ def preprocess(
     efs_predictions_path: str or pathlib.Path or None
         Path of the efs predictions file
 
+    kaplan_meier_targets_path: str or pathlib.Path or None
+        Path of the kaplan-meier targets file
+
     efs_weight: float (efs_weight >= 1)
         Weights of event occurred samples
 
@@ -284,9 +287,11 @@ def preprocess(
     """
 
     df = df.fillna(np.nan)
-    df = create_targets(df=df)
-    if efs_predictions_path is not None:
-        df = load_efs_predictions(df=df, efs_predictions_path=efs_predictions_path)
+    df = create_targets(
+        df=df,
+        efs_predictions_path=efs_predictions_path,
+        kaplan_meier_targets_path=kaplan_meier_targets_path
+    )
     df = create_sample_weights(df=df, efs_weight=efs_weight)
     df = one_hot_encode_categorical_columns(
         df=df,

@@ -26,7 +26,7 @@ if __name__ == '__main__':
     race_groups = df['race_group'].unique()
 
     model = KaplanMeierFitter()
-    model.fit(df['efs_time'], df['efs'])
+    model.fit(df.loc[df['efs'] == 1, 'efs_time'], df.loc[df['efs'] == 1, 'efs'])
     df['survival_probability'] = model.survival_function_at_times(df['efs_time']).values
 
     visualization.visualize_survival_function(

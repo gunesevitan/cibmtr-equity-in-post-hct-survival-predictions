@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import yaml
 import json
+import numpy as np
 import pandas as pd
 import lightgbm as lgb
 import optuna
@@ -15,13 +16,26 @@ import metrics
 
 def objective(trial):
 
+    """
+    Objective function to minimize
+
+    Parameters
+    ----------
+    trial: optuna.trial.Trial
+        Optuna Trial
+
+    Returns
+    -------
+    score: float
+
+    """
+
     parameters = {
-        'objective': 'poisson',
-        'poisson_max_delta_step': trial.suggest_float('poisson_max_delta_step', 0.05, 1.0, step=0.05),
+        'objective': 'l2',
         'boosting_type': 'gbdt',
         'data_sample_strategy': 'bagging',
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, step=0.005),
-        'num_leaves': trial.suggest_categorical('num_leaves', [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512]),
+        'num_leaves': trial.suggest_categorical('num_leaves', [8, 12, 16, 24, 32, 48, 64, 96, 128,]),
         'tree_learner': 'serial',
         'num_threads': -1,
         'device_type': 'cpu',
@@ -38,7 +52,7 @@ def objective(trial):
         'bagging_freq': 1,
         'feature_fraction': trial.suggest_float('feature_fraction', 0.2, 1.0, step=0.05),
         'feature_fraction_bynode': trial.suggest_float('feature_fraction_bynode', 0.2, 1.0, step=0.05),
-        'extra_trees': trial.suggest_categorical('extra_trees', [True, False]),
+        'extra_trees': False,
         'lambda_l1': 0.,
         'lambda_l2': trial.suggest_categorical('lambda_l2', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
         'linear_lambda': 0.,
@@ -63,6 +77,9 @@ def objective(trial):
 
         training_mask = df[f'fold{fold}'] == 0
         validation_mask = df[f'fold{fold}'] == 1
+
+        if config['training']['two_stage']:
+            training_mask = training_mask & (df['efs'] == 1)
 
         for seed in seeds:
 
@@ -96,8 +113,16 @@ def objective(trial):
             )
 
             validation_predictions = model.predict(df.loc[validation_mask, features], num_iteration=1500)
+
+            if config['training']['two_stage']:
+                if config['training']['target'] == 'log_efs_time':
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+                elif config['training']['target'] == 'log_km_survival_probability':
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
+
             if config['training']['rank_transform']:
                 validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
+
             df.loc[validation_mask, 'prediction'] += validation_predictions / len(seeds)
 
     oof_mask = df['prediction'].notna()
@@ -109,14 +134,15 @@ def objective(trial):
             event_column='efs',
             prediction_column='prediction'
         )
+        score = oof_scores['stratified_concordance_index']
     elif task == 'classification':
         oof_scores = metrics.classification_score(
             df=df.loc[oof_mask],
             group_column='race_group',
             event_column='efs',
-            prediction_column='prediction',
-            threshold=0.5
+            prediction_column='prediction'
         )
+        score = oof_scores['log_loss']
     elif task == 'regression':
         oof_scores = metrics.regression_score(
             df=df.loc[oof_mask],
@@ -124,12 +150,11 @@ def objective(trial):
             time_column=target,
             prediction_column='prediction'
         )
+        score = oof_scores['mean_squared_error']
     else:
         raise ValueError(f'Invalid task type {task}')
 
-    oof_sci = oof_scores['stratified_concordance_index']
-
-    return oof_sci
+    return score
 
 
 if __name__ == '__main__':
@@ -154,7 +179,10 @@ if __name__ == '__main__':
 
     df = preprocessing.preprocess(
         df=df,
-        categorical_columns=categorical_columns, categorical_dtype='category'
+        categorical_columns=config['dataset']['categorical_columns'], categorical_dtype='category',
+        kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
+        efs_predictions_path=config['dataset']['efs_predictions_path'],
+        efs_weight=config['training']['efs_weight']
     )
 
     task = config['training']['task']

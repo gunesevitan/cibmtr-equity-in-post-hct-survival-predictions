@@ -130,6 +130,6 @@ if __name__ == '__main__':
     )
     settings.logger.info(f'Saved efs_classifier_blend_roc_curves.png to {model_directory}')
 
-    prediction_columns = ['efs_prediction', 'efs_prediction_error']
+    prediction_columns = ['efs_prediction'] + prediction_columns
     df.loc[:, prediction_columns].to_csv(settings.MODELS / 'ensemble' / 'efs_predictions.csv', index=False)
     settings.logger.info(f'Saved efs_predictions.csv to {model_directory}')

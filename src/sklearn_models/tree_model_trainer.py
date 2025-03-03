@@ -39,6 +39,7 @@ if __name__ == '__main__':
         transformer_directory=settings.DATA / 'linear_model_transformers',
         load_transformers=False,
         kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
+        nelson_aalen_targets_path=config['dataset']['nelson_aalen_targets_path'],
         efs_predictions_path=config['dataset']['efs_predictions_path'],
         efs_weight=config['training']['efs_weight']
     )
@@ -47,6 +48,7 @@ if __name__ == '__main__':
     folds = config['training']['folds']
     target = config['training']['target']
     features = config['training']['features']
+    seeds = config['training']['seeds']
 
     settings.logger.info(
         f'''
@@ -69,6 +71,8 @@ if __name__ == '__main__':
     else:
         curves = None
 
+    df['prediction'] = 0.
+
     for fold in folds:
 
         training_mask = df[f'fold{fold}'] == 0
@@ -85,44 +89,51 @@ if __name__ == '__main__':
             '''
         )
 
-        if 'tree' in config['model_class'].lower():
-            model = getattr(sklearn.tree, config['model_class'])(**config['model_parameters'])
-        else:
-            model = getattr(sklearn.ensemble, config['model_class'])(**config['model_parameters'])
+        for seed in seeds:
 
-        model.fit(
-            X=df.loc[training_mask, features],
-            y=df.loc[training_mask, target],
-            sample_weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None
-        )
+            config['model_parameters']['random_state'] = seed
 
-        model_file_name = f'model_fold_{fold}.pickle'
-        with open(model_directory / model_file_name, mode='wb') as f:
-            pickle.dump(model, f)
-        settings.logger.info(f'{model_file_name} is saved to {model_directory}')
+            if 'tree' in config['model_class'].lower():
+                model = getattr(sklearn.tree, config['model_class'])(**config['model_parameters'])
+            else:
+                model = getattr(sklearn.ensemble, config['model_class'])(**config['model_parameters'])
 
-        try:
-            df_coefficients.loc[:, fold] = model.feature_importances_
-        except AttributeError:
-            df_coefficients.loc[:, fold] = 0
+            model.fit(
+                X=df.loc[training_mask, features],
+                y=df.loc[training_mask, target],
+                sample_weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None
+            )
 
-        if task == 'classification':
-            validation_predictions = model.predict_proba(df.loc[validation_mask, features])[:, 1]
-        else:
-            validation_predictions = model.predict(df.loc[validation_mask, features])
+            model_file_name = f'model_fold_{fold}_seed_{seed}.pickle'
+            with open(model_directory / model_file_name, mode='wb') as f:
+                pickle.dump(model, f)
+            settings.logger.info(f'{model_file_name} is saved to {model_directory}')
 
-        if config['training']['two_stage']:
-            if config['training']['target'] == 'log_efs_time':
-                df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
-                validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
-            elif config['training']['target'] == 'log_km_survival_probability':
-                df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
-                validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
+            try:
+                df_coefficients.loc[:, fold] = model.feature_importances_
+            except AttributeError:
+                df_coefficients.loc[:, fold] = 0
 
-        if config['training']['rank_transform']:
-            validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
+            if task == 'classification':
+                validation_predictions = model.predict_proba(df.loc[validation_mask, features])[:, 1]
+            else:
+                validation_predictions = model.predict(df.loc[validation_mask, features])
 
-        df.loc[validation_mask, 'prediction'] = validation_predictions
+            if config['training']['two_stage']:
+                if config['training']['target'] in ['log_efs_time']:
+                    df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+                elif config['training']['target'] in ['efs_time']:
+                    df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] / validation_predictions
+                elif config['training']['target'] in ['log_km_survival_probability', 'na_cumulative_hazard', 'gg_cumulative_hazard', 'y']:
+                    df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
+
+            if config['training']['rank_transform']:
+                validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
+
+            df.loc[validation_mask, 'prediction'] += (validation_predictions / len(seeds))
 
         if task == 'ranking':
             validation_scores = metrics.ranking_score(

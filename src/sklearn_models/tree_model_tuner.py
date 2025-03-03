@@ -5,7 +5,7 @@ import yaml
 import json
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, HistGradientBoostingClassifier, HistGradientBoostingRegressor
 import optuna
 
 sys.path.append('..')
@@ -17,7 +17,7 @@ import metrics
 def objective(trial):
 
     parameters = {
-        'loss': trial.suggest_categorical('loss', ['squared_error', 'gamma', 'poisson']),
+        'loss': trial.suggest_categorical('loss', ['log_loss']),
         'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.2, step=0.005),
         'max_iter': trial.suggest_int('max_iter', 100, 500, step=10),
         'max_leaf_nodes': trial.suggest_categorical('max_leaf_nodes', [4, 8, 12, 16, 24, 32, 48, 64, 96, 128]),
@@ -32,6 +32,19 @@ def objective(trial):
         'scoring': 'loss',
         'validation_fraction': None,
         'random_state': None,
+        'categorical_features': [
+            'dri_score_encoded', 'psych_disturb_encoded', 'cyto_score_encoded', 'diabetes_encoded', 'hla_match_c_high_encoded',
+            'hla_high_res_8_encoded', 'tbi_status_encoded', 'arrhythmia_encoded', 'hla_low_res_6_encoded', 'graft_type_encoded',
+            'vent_hist_encoded', 'renal_issue_encoded', 'pulm_severe_encoded', 'prim_disease_hct_encoded', 'hla_high_res_6_encoded',
+            'cmv_status_encoded', 'hla_high_res_10_encoded', 'hla_match_dqb1_high_encoded', 'tce_imm_match_encoded', 'hla_nmdp_6_encoded',
+            'hla_match_c_low_encoded', 'rituximab_encoded', 'hla_match_drb1_low_encoded', 'hla_match_dqb1_low_encoded', 'prod_type_encoded',
+            'cyto_score_detail_encoded', 'conditioning_intensity_encoded', 'ethnicity_encoded', 'year_hct_encoded', 'obesity_encoded',
+            'mrd_hct_encoded', 'in_vivo_tcd_encoded', 'tce_match_encoded', 'hla_match_a_high_encoded', 'hepatic_severe_encoded',
+            'prior_tumor_encoded', 'hla_match_b_low_encoded', 'peptic_ulcer_encoded', 'hla_match_a_low_encoded', 'gvhd_proph_encoded',
+            'rheum_issue_encoded', 'sex_match_encoded', 'hla_match_b_high_encoded', 'race_group_encoded', 'comorbidity_score_encoded',
+            'karnofsky_score_encoded', 'hepatic_mild_encoded', 'tce_div_match_encoded', 'donor_related_encoded', 'melphalan_dose_encoded',
+            'hla_low_res_8_encoded', 'cardiac_encoded', 'hla_match_drb1_high_encoded', 'pulm_moderate_encoded', 'hla_low_res_10_encoded',
+        ]
     }
 
     df['prediction'] = 0.
@@ -48,8 +61,7 @@ def objective(trial):
 
             parameters['random_state'] = seed
 
-            #model = HistGradientBoostingClassifier(**parameters)
-            model = HistGradientBoostingRegressor(**parameters)
+            model = eval(config['model_class'])(**parameters)
             model.fit(
                 X=df.loc[training_mask, features],
                 y=df.loc[training_mask, target],
@@ -62,9 +74,12 @@ def objective(trial):
                 validation_predictions = model.predict(df.loc[validation_mask, features])
 
             if config['training']['two_stage']:
-                if config['training']['target'] == 'log_efs_time':
+                if config['training']['target'] in ['log_efs_time']:
                     validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
-                elif config['training']['target'] == 'log_km_survival_probability':
+                elif config['training']['target'] in ['efs_time']:
+                    df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
+                    validation_predictions = df.loc[validation_mask, 'efs_prediction'] / validation_predictions
+                elif config['training']['target'] in ['log_km_survival_probability', 'na_cumulative_hazard', 'gg_cumulative_hazard']:
                     validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
 
             if config['training']['rank_transform']:
@@ -132,6 +147,7 @@ if __name__ == '__main__':
         load_transformers=False,
         efs_predictions_path=config['dataset']['efs_predictions_path'],
         kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
+        nelson_aalen_targets_path=config['dataset']['nelson_aalen_targets_path'],
         efs_weight=config['training']['efs_weight']
     )
 
@@ -147,7 +163,7 @@ if __name__ == '__main__':
             study_name=f'{model_directory.name}_study',
             storage=storage,
             load_if_exists=True,
-            direction='maximize'
+            direction='minimize'
         )
         study.optimize(objective, n_trials=300)
     except KeyboardInterrupt:

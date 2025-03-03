@@ -119,7 +119,6 @@ def ordinal_encode_categorical_columns(df, categorical_columns, transformer_dire
     return df
 
 
-
 def normalize_continuous_columns(df, continuous_columns, transformer_directory, load_transformers=False):
 
     """

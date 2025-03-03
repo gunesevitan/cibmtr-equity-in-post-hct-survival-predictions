@@ -204,8 +204,10 @@ if __name__ == '__main__':
         training_mask = df[f'fold{fold}'] == 0
         validation_mask = df[f'fold{fold}'] == 1
 
-        if task == 'ranking':
+        if config['training']['two_stage']:
             training_mask = training_mask & (df['efs'] == 1)
+
+        df.loc[validation_mask, 'prediction'] = 0.
 
         settings.logger.info(
             f'''
@@ -286,8 +288,20 @@ if __name__ == '__main__':
 
         if task == 'classification':
             validation_predictions = torch.sigmoid(validation_predictions)
-        validation_predictions = validation_predictions.numpy()
-        df.loc[validation_mask, 'prediction'] = validation_predictions
+        validation_predictions = validation_predictions.numpy().reshape(-1)
+
+        if config['training']['two_stage']:
+            if config['training']['target'] == 'log_efs_time':
+                df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
+                validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
+            elif config['training']['target'] == 'log_km_survival_probability':
+                df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
+                validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
+
+        if config['training']['rank_transform']:
+            validation_predictions = pd.Series(validation_predictions).rank(pct=True).values
+
+        df.loc[validation_mask, 'prediction'] += validation_predictions
 
         if task == 'ranking':
             validation_scores = metrics.ranking_score(

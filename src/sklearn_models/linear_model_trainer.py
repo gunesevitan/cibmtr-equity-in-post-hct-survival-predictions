@@ -9,6 +9,7 @@ import pandas as pd
 import sklearn.linear_model
 import sklearn.svm
 import sklearn.neighbors
+import sklearn.neural_network
 
 sys.path.append('..')
 import settings
@@ -41,6 +42,7 @@ if __name__ == '__main__':
         load_transformers=False,
         efs_predictions_path=config['dataset']['efs_predictions_path'],
         kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
+        nelson_aalen_targets_path=config['dataset']['nelson_aalen_targets_path'],
         efs_weight=config['training']['efs_weight']
     )
 
@@ -91,6 +93,9 @@ if __name__ == '__main__':
             model.fit(X=df.loc[training_mask, features], y=df.loc[training_mask, target])
         elif 'neighbor' in config['model_class'].lower():
             model = getattr(sklearn.neighbors, config['model_class'])(**config['model_parameters'])
+            model.fit(X=df.loc[training_mask, features], y=df.loc[training_mask, target])
+        elif 'mlp' in config['model_class'].lower():
+            model = getattr(sklearn.neural_network, config['model_class'])(**config['model_parameters'])
             model.fit(X=df.loc[training_mask, features], y=df.loc[training_mask, target])
         else:
             model = getattr(sklearn.linear_model, config['model_class'])(**config['model_parameters'])

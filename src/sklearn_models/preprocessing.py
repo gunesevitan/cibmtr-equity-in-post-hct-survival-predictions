@@ -159,7 +159,8 @@ def normalize_continuous_columns(df, continuous_columns, transformer_directory, 
         normalizer = StandardScaler()
         normalizer.fit(df[continuous_columns].values)
         normalized_column_names = [f'{column}_normalized' for column in continuous_columns]
-        df[normalized_column_names] = normalizer.transform(df[continuous_columns].fillna(df[continuous_columns].median()).values)
+        df[normalized_column_names] = np.nan
+        df.loc[:, normalized_column_names] = normalizer.transform(df[continuous_columns].fillna(df[continuous_columns].median()).values)
 
         with open(transformer_directory / 'standard_scaler.pickle', mode='wb') as f:
             pickle.dump(normalizer, f)
@@ -167,7 +168,11 @@ def normalize_continuous_columns(df, continuous_columns, transformer_directory, 
     return df
 
 
-def create_targets(df, efs_predictions_path, kaplan_meier_targets_path):
+def create_targets(
+        df,
+        efs_predictions_path,
+        kaplan_meier_targets_path, nelson_aalen_targets_path
+):
 
     """
     Create targets on given dataframe
@@ -213,7 +218,19 @@ def create_targets(df, efs_predictions_path, kaplan_meier_targets_path):
         df['log_km_survival_probability'] = np.log1p(df['km_survival_probability'])
         df['log_km_survival_probability'] -= df['log_km_survival_probability'].min()
         df['log_km_survival_probability'] /= df['log_km_survival_probability'].max()
-        df['log_km_survival_probability'] += 1e-6
+
+    if nelson_aalen_targets_path is not None:
+        df_nelson_aalen = pd.read_csv(nelson_aalen_targets_path).rename(columns={
+            'cumulative_hazard': 'na_cumulative_hazard',
+            'hazard_rate': 'na_hazard_rate'
+        })
+        df = pd.concat((
+            df,
+            df_nelson_aalen
+        ), axis=1, ignore_index=False)
+
+        df['na_cumulative_hazard'] = -np.exp(df['na_cumulative_hazard'])
+        df['na_hazard_rate'] = -np.exp(df['na_hazard_rate'])
 
     return df
 
@@ -237,7 +254,7 @@ def create_sample_weights(df, efs_weight):
         Dataframe with sample weights
     """
 
-    df['weight'] = 1
+    df['weight'] = 1.
     df.loc[df['efs'] == 1, 'weight'] = efs_weight
 
     return df
@@ -247,7 +264,7 @@ def preprocess(
         df,
         categorical_columns, continuous_columns,
         transformer_directory, load_transformers,
-        efs_predictions_path, kaplan_meier_targets_path,
+        efs_predictions_path, kaplan_meier_targets_path, nelson_aalen_targets_path,
         efs_weight
 ):
 
@@ -290,7 +307,8 @@ def preprocess(
     df = create_targets(
         df=df,
         efs_predictions_path=efs_predictions_path,
-        kaplan_meier_targets_path=kaplan_meier_targets_path
+        kaplan_meier_targets_path=kaplan_meier_targets_path,
+        nelson_aalen_targets_path=nelson_aalen_targets_path
     )
     df = create_sample_weights(df=df, efs_weight=efs_weight)
     df = one_hot_encode_categorical_columns(

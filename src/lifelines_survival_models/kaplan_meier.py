@@ -26,7 +26,8 @@ if __name__ == '__main__':
     race_groups = df['race_group'].unique()
 
     model = KaplanMeierFitter()
-    model.fit(df.loc[df['efs'] == 1, 'efs_time'], df.loc[df['efs'] == 1, 'efs'])
+    mask = df['efs'] == 1
+    model.fit(df.loc[mask, 'efs_time'], df.loc[mask, 'efs'])
     df['survival_probability'] = model.survival_function_at_times(df['efs_time']).values
 
     visualization.visualize_survival_function(
@@ -38,7 +39,8 @@ if __name__ == '__main__':
 
     for race_group, df_group in df.groupby('race_group'):
         model = KaplanMeierFitter()
-        model.fit(df_group['efs_time'], df_group['efs'])
+        mask = df_group['efs'] == 1
+        model.fit(df_group.loc[mask, 'efs_time'], df_group.loc[mask, 'efs'])
         df_group['race_group_survival_probability'] = model.survival_function_at_times(df_group['efs_time']).values
         group_idx = df_group.index
         df.loc[group_idx, 'race_group_survival_probability'] = df_group['race_group_survival_probability']

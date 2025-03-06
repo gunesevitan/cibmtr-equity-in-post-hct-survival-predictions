@@ -39,7 +39,6 @@ if __name__ == '__main__':
     df = pd.read_parquet(settings.DATA / 'datasets' / 'dataset.parquet')
     settings.logger.info(f'Raw Dataset Shape {df.shape}')
 
-    df_lr_efs = load_oof_predictions('logistic_regression_efs')
     df_hgbm_efs = load_oof_predictions('hist_gradient_boosting_classifier_efs')
     df_lgb_efs = load_oof_predictions('lightgbm_efs_binary_classifier')
     df_xgb_efs = load_oof_predictions('xgboost_efs_binary_classifier')
@@ -48,7 +47,6 @@ if __name__ == '__main__':
     df_mlp_embeddings_efs = load_oof_predictions('mlp_embeddings_efs_binary_classifier')
     df = pd.concat((
         df,
-        df_lr_efs,
         df_hgbm_efs,
         df_lgb_efs,
         df_xgb_efs,
@@ -58,7 +56,6 @@ if __name__ == '__main__':
     ), axis=1)
 
     prediction_columns = [
-        'logistic_regression_efs_prediction',
         'hist_gradient_boosting_classifier_efs_prediction',
         'lightgbm_efs_binary_classifier_prediction',
         'xgboost_efs_binary_classifier_prediction',
@@ -84,13 +81,12 @@ if __name__ == '__main__':
         )
         settings.logger.info(f'{column} OOF Scores: {json.dumps(oof_scores, indent=2)}')
 
-    df['efs_prediction'] = df['logistic_regression_efs_prediction'] * 0.05 + \
-                           df['hist_gradient_boosting_classifier_efs_prediction'] * 0.3 + \
-                           df['lightgbm_efs_binary_classifier_prediction'] * 0.15 + \
-                           df['xgboost_efs_binary_classifier_prediction'] * 0.15 + \
-                           df['catboost_efs_binary_classifier_prediction'] * 0.15 + \
-                           df['mlp_sparse_efs_binary_classifier_prediction'] * 0.1 + \
-                           df['mlp_embeddings_efs_binary_classifier_prediction'] * 0.1
+    df['efs_prediction'] = df['hist_gradient_boosting_classifier_efs_prediction'] * 0.45 + \
+                           df['lightgbm_efs_binary_classifier_prediction'] * 0.05 + \
+                           df['xgboost_efs_binary_classifier_prediction'] * 0.05 + \
+                           df['catboost_efs_binary_classifier_prediction'] * 0.2 + \
+                           df['mlp_sparse_efs_binary_classifier_prediction'] * 0.125 + \
+                           df['mlp_embeddings_efs_binary_classifier_prediction'] * 0.125
 
     df.loc[df['race_group'] == 'More than one race', 'efs_prediction'] *= 1.
     df.loc[df['race_group'] == 'Asian', 'efs_prediction'] *= 1.
@@ -98,6 +94,8 @@ if __name__ == '__main__':
     df.loc[df['race_group'] == 'American Indian or Alaska Native', 'efs_prediction'] *= 1.
     df.loc[df['race_group'] == 'Native Hawaiian or other Pacific Islander', 'efs_prediction'] *= 1.
     df.loc[df['race_group'] == 'Black or African-American', 'efs_prediction'] *= 1.
+    #df.loc[df['efs_prediction'] >= 0.97, 'efs_prediction'] = 1
+    #df.loc[df['efs_prediction'] <= 0.03, 'efs_prediction'] = 0
 
     df['efs_prediction_error'] = df['efs'] - df['efs_prediction']
 

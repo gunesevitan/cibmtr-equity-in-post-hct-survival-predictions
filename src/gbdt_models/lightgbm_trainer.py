@@ -69,6 +69,7 @@ if __name__ == '__main__':
         df=df,
         categorical_columns=config['dataset']['categorical_columns'], categorical_dtype='category',
         kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
+        nelson_aalen_targets_path=config['dataset']['nelson_aalen_targets_path'],
         efs_predictions_path=config['dataset']['efs_predictions_path'],
         efs_weight=config['training']['efs_weight']
     )
@@ -166,8 +167,10 @@ if __name__ == '__main__':
 
             if config['training']['two_stage']:
                 if config['training']['target'] == 'log_efs_time':
+                    df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
                     validation_predictions = df.loc[validation_mask, 'efs_prediction'] / np.exp(validation_predictions)
                 elif config['training']['target'] == 'log_km_survival_probability':
+                    df.loc[validation_mask, 'reg_1_prediction'] = validation_predictions
                     validation_predictions = df.loc[validation_mask, 'efs_prediction'] * np.exp(validation_predictions)
 
             if config['training']['rank_transform']:
@@ -293,5 +296,6 @@ if __name__ == '__main__':
         )
         settings.logger.info(f'Saved feature_importance_{importance_type}.png to {model_directory}')
 
-    df.loc[:, 'prediction'].to_csv(model_directory / 'oof_predictions.csv', index=False)
+    columns_to_save = ['prediction', 'reg_1_prediction'] if config['training']['two_stage'] else ['prediction']
+    df.loc[:, columns_to_save].to_csv(model_directory / 'oof_predictions.csv', index=False)
     settings.logger.info(f'Saved oof_predictions.csv to {model_directory}')

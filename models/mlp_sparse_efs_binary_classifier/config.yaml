@@ -1,0 +1,130 @@
+dataset:
+  name: 'dataset.parquet'
+  categorical_columns: [
+    'dri_score', 'psych_disturb', 'cyto_score', 'diabetes', 'hla_match_c_high', 'hla_high_res_8', 'tbi_status',
+    'arrhythmia', 'hla_low_res_6', 'graft_type', 'vent_hist', 'renal_issue', 'pulm_severe', 'prim_disease_hct',
+    'hla_high_res_6', 'cmv_status', 'hla_high_res_10', 'hla_match_dqb1_high', 'tce_imm_match', 'hla_nmdp_6',
+    'hla_match_c_low', 'rituximab', 'hla_match_drb1_low', 'hla_match_dqb1_low', 'prod_type', 'cyto_score_detail',
+    'conditioning_intensity', 'ethnicity', 'year_hct', 'obesity', 'mrd_hct', 'in_vivo_tcd', 'tce_match',
+    'hla_match_a_high', 'hepatic_severe', 'prior_tumor', 'hla_match_b_low', 'peptic_ulcer', 'hla_match_a_low',
+    'gvhd_proph', 'rheum_issue', 'sex_match', 'hla_match_b_high', 'race_group', 'comorbidity_score', 'karnofsky_score',
+    'hepatic_mild', 'tce_div_match', 'donor_related', 'melphalan_dose', 'hla_low_res_8', 'cardiac', 'hla_match_drb1_high',
+    'pulm_moderate', 'hla_low_res_10'
+  ]
+  continuous_columns: [
+    'donor_age', 'age_at_hct'
+  ]
+  efs_predictions_path: null
+
+training:
+  task: 'classification'
+  sample_weight: False
+  efs_weight: 1.0
+  rank_transform: False
+  two_stage: False
+  target: 'efs'
+  features: [
+    'dri_score_High', 'dri_score_High - TED AML case <missing cytogenetics', 'dri_score_Intermediate',
+    'dri_score_Intermediate - TED AML case <missing cytogenetics', 'dri_score_Low',
+    'dri_score_N/A - disease not classifiable', 'dri_score_N/A - non-malignant indication', 'dri_score_N/A - pediatric',
+    'dri_score_TBD cytogenetics', 'dri_score_Very high', 'dri_score_nan', 'dri_score_infrequent_sklearn', 'psych_disturb_No',
+    'psych_disturb_Not done', 'psych_disturb_Yes', 'psych_disturb_nan', 'cyto_score_Favorable', 'cyto_score_Intermediate',
+    'cyto_score_Normal', 'cyto_score_Other', 'cyto_score_Poor', 'cyto_score_TBD', 'cyto_score_nan', 'cyto_score_infrequent_sklearn',
+    'diabetes_No', 'diabetes_Not done', 'diabetes_Yes', 'diabetes_nan', 'hla_match_c_high_1.0', 'hla_match_c_high_2.0',
+    'hla_match_c_high_nan', 'hla_match_c_high_infrequent_sklearn', 'hla_high_res_8_4.0', 'hla_high_res_8_5.0', 'hla_high_res_8_6.0',
+    'hla_high_res_8_7.0', 'hla_high_res_8_8.0', 'hla_high_res_8_nan', 'hla_high_res_8_infrequent_sklearn', 'tbi_status_No TBI',
+    'tbi_status_TBI + Cy +- Other', 'tbi_status_TBI +- Other, -cGy, single', 'tbi_status_TBI +- Other, <=cGy',
+    'tbi_status_TBI +- Other, >cGy', 'tbi_status_infrequent_sklearn', 'arrhythmia_No', 'arrhythmia_Yes', 'arrhythmia_nan',
+    'arrhythmia_infrequent_sklearn', 'hla_low_res_6_3.0', 'hla_low_res_6_4.0', 'hla_low_res_6_5.0', 'hla_low_res_6_6.0',
+    'hla_low_res_6_nan', 'hla_low_res_6_infrequent_sklearn', 'graft_type_Bone marrow', 'graft_type_Peripheral blood',
+    'vent_hist_No', 'vent_hist_Yes', 'vent_hist_nan', 'renal_issue_No', 'renal_issue_Not done', 'renal_issue_Yes', 'renal_issue_nan',
+    'pulm_severe_No', 'pulm_severe_Not done', 'pulm_severe_Yes', 'pulm_severe_nan', 'prim_disease_hct_AI', 'prim_disease_hct_ALL',
+    'prim_disease_hct_AML', 'prim_disease_hct_HIS', 'prim_disease_hct_IEA', 'prim_disease_hct_IIS', 'prim_disease_hct_IMD',
+    'prim_disease_hct_IPA', 'prim_disease_hct_MDS', 'prim_disease_hct_MPN', 'prim_disease_hct_NHL', 'prim_disease_hct_Other leukemia',
+    'prim_disease_hct_PCD', 'prim_disease_hct_SAA', 'prim_disease_hct_Solid tumor', 'prim_disease_hct_infrequent_sklearn',
+    'hla_high_res_6_3.0', 'hla_high_res_6_4.0', 'hla_high_res_6_5.0', 'hla_high_res_6_6.0', 'hla_high_res_6_nan',
+    'hla_high_res_6_infrequent_sklearn', 'cmv_status_+/+', 'cmv_status_+/-', 'cmv_status_-/+', 'cmv_status_-/-', 'cmv_status_nan',
+    'hla_high_res_10_5.0', 'hla_high_res_10_6.0', 'hla_high_res_10_7.0', 'hla_high_res_10_8.0', 'hla_high_res_10_9.0',
+    'hla_high_res_10_10.0', 'hla_high_res_10_nan', 'hla_high_res_10_infrequent_sklearn', 'hla_match_dqb1_high_1.0',
+    'hla_match_dqb1_high_2.0', 'hla_match_dqb1_high_nan', 'hla_match_dqb1_high_infrequent_sklearn', 'tce_imm_match_G/B',
+    'tce_imm_match_G/G', 'tce_imm_match_H/B', 'tce_imm_match_H/H', 'tce_imm_match_P/P', 'tce_imm_match_nan',
+    'tce_imm_match_infrequent_sklearn', 'hla_nmdp_6_3.0', 'hla_nmdp_6_4.0', 'hla_nmdp_6_5.0', 'hla_nmdp_6_6.0', 'hla_nmdp_6_nan',
+    'hla_nmdp_6_infrequent_sklearn', 'hla_match_c_low_1.0', 'hla_match_c_low_2.0', 'hla_match_c_low_nan', 'hla_match_c_low_infrequent_sklearn',
+    'rituximab_No', 'rituximab_Yes', 'rituximab_nan', 'hla_match_drb1_low_1.0', 'hla_match_drb1_low_2.0', 'hla_match_drb1_low_nan',
+    'hla_match_dqb1_low_1.0', 'hla_match_dqb1_low_2.0', 'hla_match_dqb1_low_nan', 'hla_match_dqb1_low_infrequent_sklearn', 'prod_type_BM',
+    'prod_type_PB', 'cyto_score_detail_Favorable', 'cyto_score_detail_Intermediate', 'cyto_score_detail_Not tested', 'cyto_score_detail_Poor',
+    'cyto_score_detail_TBD', 'cyto_score_detail_nan', 'conditioning_intensity_MAC', 'conditioning_intensity_NMA', 'conditioning_intensity_RIC',
+    'conditioning_intensity_TBD', 'conditioning_intensity_nan', 'conditioning_intensity_infrequent_sklearn', 'ethnicity_Hispanic or Latino',
+    'ethnicity_Non-resident of the U.S.', 'ethnicity_Not Hispanic or Latino', 'ethnicity_nan', 'year_hct_2008', 'year_hct_2009', 'year_hct_2010',
+    'year_hct_2011', 'year_hct_2012', 'year_hct_2013', 'year_hct_2014', 'year_hct_2015', 'year_hct_2016', 'year_hct_2017', 'year_hct_2018',
+    'year_hct_2019', 'year_hct_infrequent_sklearn', 'obesity_No', 'obesity_Yes', 'obesity_nan', 'obesity_infrequent_sklearn', 'mrd_hct_Negative',
+    'mrd_hct_Positive', 'mrd_hct_nan', 'in_vivo_tcd_No', 'in_vivo_tcd_Yes', 'in_vivo_tcd_nan', 'tce_match_Fully matched',
+    'tce_match_GvH non-permissive', 'tce_match_HvG non-permissive', 'tce_match_Permissive', 'tce_match_nan', 'hla_match_a_high_1.0',
+    'hla_match_a_high_2.0', 'hla_match_a_high_nan', 'hla_match_a_high_infrequent_sklearn', 'hepatic_severe_No', 'hepatic_severe_Not done',
+    'hepatic_severe_Yes', 'hepatic_severe_nan', 'prior_tumor_No', 'prior_tumor_Not done', 'prior_tumor_Yes', 'prior_tumor_nan',
+    'hla_match_b_low_1.0', 'hla_match_b_low_2.0', 'hla_match_b_low_nan', 'hla_match_b_low_infrequent_sklearn', 'peptic_ulcer_No',
+    'peptic_ulcer_Not done', 'peptic_ulcer_Yes', 'peptic_ulcer_nan', 'hla_match_a_low_1.0', 'hla_match_a_low_2.0', 'hla_match_a_low_nan',
+    'hla_match_a_low_infrequent_sklearn', 'gvhd_proph_CDselect alone', 'gvhd_proph_CSA + MMF +- others(not FK)',
+    'gvhd_proph_CSA + MTX +- others(not MMF,FK)', 'gvhd_proph_CSA alone', 'gvhd_proph_Cyclophosphamide +- others',
+    'gvhd_proph_Cyclophosphamide alone', 'gvhd_proph_FK+ MMF +- others', 'gvhd_proph_FK+ MTX +- others(not MMF)',
+    'gvhd_proph_FKalone', 'gvhd_proph_No GvHD Prophylaxis', 'gvhd_proph_Other GVHD Prophylaxis', 'gvhd_proph_TDEPLETION +- other',
+    'gvhd_proph_TDEPLETION alone', 'gvhd_proph_nan', 'gvhd_proph_infrequent_sklearn', 'rheum_issue_No', 'rheum_issue_Not done',
+    'rheum_issue_Yes', 'rheum_issue_nan', 'sex_match_F-F', 'sex_match_F-M', 'sex_match_M-F', 'sex_match_M-M', 'sex_match_nan',
+    'hla_match_b_high_1.0', 'hla_match_b_high_2.0', 'hla_match_b_high_nan', 'hla_match_b_high_infrequent_sklearn',
+    'race_group_American Indian or Alaska Native', 'race_group_Asian', 'race_group_Black or African-American', 'race_group_More than one race',
+    'race_group_Native Hawaiian or other Pacific Islander', 'race_group_White', 'comorbidity_score_0.0', 'comorbidity_score_1.0',
+    'comorbidity_score_2.0', 'comorbidity_score_3.0', 'comorbidity_score_4.0', 'comorbidity_score_5.0', 'comorbidity_score_6.0',
+    'comorbidity_score_7.0', 'comorbidity_score_8.0', 'comorbidity_score_9.0', 'comorbidity_score_nan', 'comorbidity_score_infrequent_sklearn',
+    'karnofsky_score_60.0', 'karnofsky_score_70.0', 'karnofsky_score_80.0', 'karnofsky_score_90.0', 'karnofsky_score_100.0', 'karnofsky_score_nan',
+    'karnofsky_score_infrequent_sklearn', 'hepatic_mild_No', 'hepatic_mild_Not done', 'hepatic_mild_Yes', 'hepatic_mild_nan',
+    'tce_div_match_Bi-directional non-permissive', 'tce_div_match_GvH non-permissive', 'tce_div_match_HvG non-permissive',
+    'tce_div_match_Permissive mismatched', 'tce_div_match_nan', 'donor_related_Multiple donor (non-UCB)', 'donor_related_Related',
+    'donor_related_Unrelated', 'donor_related_nan', 'melphalan_dose_MEL', 'melphalan_dose_N/A, Mel not given', 'melphalan_dose_nan',
+    'hla_low_res_8_4.0', 'hla_low_res_8_5.0', 'hla_low_res_8_6.0', 'hla_low_res_8_7.0', 'hla_low_res_8_8.0', 'hla_low_res_8_nan',
+    'hla_low_res_8_infrequent_sklearn', 'cardiac_No', 'cardiac_Not done', 'cardiac_Yes', 'cardiac_nan', 'hla_match_drb1_high_1.0',
+    'hla_match_drb1_high_2.0', 'hla_match_drb1_high_nan', 'hla_match_drb1_high_infrequent_sklearn', 'pulm_moderate_No',
+    'pulm_moderate_Not done', 'pulm_moderate_Yes', 'pulm_moderate_nan', 'hla_low_res_10_5.0', 'hla_low_res_10_6.0', 'hla_low_res_10_7.0',
+    'hla_low_res_10_8.0', 'hla_low_res_10_9.0', 'hla_low_res_10_10.0', 'hla_low_res_10_nan', 'hla_low_res_10_infrequent_sklearn',
+    'donor_age_normalized', 'age_at_hct_normalized'
+  ]
+  folds: [1, 2, 3, 4, 5, 6, 7]
+  loss_function: 'BCEWithLogitsLoss'
+  loss_function_args: {}
+  weighted_loss_function: False
+  training_batch_size: 1024
+  test_batch_size: 1024
+  num_workers: 16
+  random_state: 42
+  deterministic_cudnn: False
+  device: 'cpu'
+  optimizer: 'AdamW'
+  optimizer_args:
+    lr: 0.001
+    betas: [0.9, 0.999]
+    weight_decay: 0.001
+  lr_scheduler: 'OneCycleLR'
+  lr_scheduler_args:
+    max_lr: 0.001
+    epochs: 10
+    steps_per_epoch: 25
+    pct_start: 0.05
+    anneal_strategy: 'cos'
+    div_factor: 8
+    final_div_factor: 100
+  amp: False
+  epochs: 10
+
+model:
+  model_class: 'SparseMLP'
+  model_args:
+    input_dim: 302
+    stem_dim: 128
+    mlp_hidden_dim: 512
+    n_blocks: 1
+    output_dim: 1
+  model_checkpoint_path: null
+
+persistence:
+  save_best_metrics: ['log_loss']
+  save_best_metric_higher_or_lower: ['lower']
+  save_epochs: []

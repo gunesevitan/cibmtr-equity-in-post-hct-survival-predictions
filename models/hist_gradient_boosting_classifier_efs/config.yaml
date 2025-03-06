@@ -1,0 +1,62 @@
+dataset:
+  name: 'dataset.parquet'
+  categorical_columns: [
+    'dri_score', 'psych_disturb', 'cyto_score', 'diabetes', 'hla_match_c_high', 'hla_high_res_8', 'tbi_status',
+    'arrhythmia', 'hla_low_res_6', 'graft_type', 'vent_hist', 'renal_issue', 'pulm_severe', 'prim_disease_hct',
+    'hla_high_res_6', 'cmv_status', 'hla_high_res_10', 'hla_match_dqb1_high', 'tce_imm_match', 'hla_nmdp_6',
+    'hla_match_c_low', 'rituximab', 'hla_match_drb1_low', 'hla_match_dqb1_low', 'prod_type', 'cyto_score_detail',
+    'conditioning_intensity', 'ethnicity', 'year_hct', 'obesity', 'mrd_hct', 'in_vivo_tcd', 'tce_match',
+    'hla_match_a_high', 'hepatic_severe', 'prior_tumor', 'hla_match_b_low', 'peptic_ulcer', 'hla_match_a_low',
+    'gvhd_proph', 'rheum_issue', 'sex_match', 'hla_match_b_high', 'race_group', 'comorbidity_score', 'karnofsky_score',
+    'hepatic_mild', 'tce_div_match', 'donor_related', 'melphalan_dose', 'hla_low_res_8', 'cardiac', 'hla_match_drb1_high',
+    'pulm_moderate', 'hla_low_res_10'
+  ]
+  continuous_columns: [
+    'donor_age', 'age_at_hct'
+  ]
+  efs_predictions_path: '/home/gunes/Desktop/Kaggle/cibmtr-equity-in-post-hct-survival-predictions/models/ensemble/efs_predictions.csv'
+  kaplan_meier_targets_path: '/home/gunes/Desktop/Kaggle/cibmtr-equity-in-post-hct-survival-predictions/models/kaplan_meier/targets.csv'
+  nelson_aalen_targets_path: '/home/gunes/Desktop/Kaggle/cibmtr-equity-in-post-hct-survival-predictions/models/nelson_aalen/targets.csv'
+
+training:
+  task: 'classification'
+  sample_weight: False
+  efs_weight: 1.0
+  rank_transform: False
+  two_stage: False
+  target: 'efs'
+  features: [
+    'dri_score_encoded', 'psych_disturb_encoded', 'cyto_score_encoded', 'diabetes_encoded', 'hla_match_c_high_encoded',
+    'hla_high_res_8_encoded', 'tbi_status_encoded', 'arrhythmia_encoded', 'hla_low_res_6_encoded', 'graft_type_encoded',
+    'vent_hist_encoded', 'renal_issue_encoded', 'pulm_severe_encoded', 'prim_disease_hct_encoded', 'hla_high_res_6_encoded',
+    'cmv_status_encoded', 'hla_high_res_10_encoded', 'hla_match_dqb1_high_encoded', 'tce_imm_match_encoded', 'hla_nmdp_6_encoded',
+    'hla_match_c_low_encoded', 'rituximab_encoded', 'hla_match_drb1_low_encoded', 'hla_match_dqb1_low_encoded', 'prod_type_encoded',
+    'cyto_score_detail_encoded', 'conditioning_intensity_encoded', 'ethnicity_encoded', 'year_hct_encoded', 'obesity_encoded',
+    'mrd_hct_encoded', 'in_vivo_tcd_encoded', 'tce_match_encoded', 'hla_match_a_high_encoded', 'hepatic_severe_encoded',
+    'prior_tumor_encoded', 'hla_match_b_low_encoded', 'peptic_ulcer_encoded', 'hla_match_a_low_encoded', 'gvhd_proph_encoded',
+    'rheum_issue_encoded', 'sex_match_encoded', 'hla_match_b_high_encoded', 'race_group_encoded', 'comorbidity_score_encoded',
+    'karnofsky_score_encoded', 'hepatic_mild_encoded', 'tce_div_match_encoded', 'donor_related_encoded', 'melphalan_dose_encoded',
+    'hla_low_res_8_encoded', 'cardiac_encoded', 'hla_match_drb1_high_encoded', 'pulm_moderate_encoded', 'hla_low_res_10_encoded',
+    'donor_age_normalized', 'age_at_hct_normalized'
+  ]
+  folds: [1, 2, 3, 4, 5, 6, 7]
+  seeds: [0,]
+
+model_class: HistGradientBoostingClassifier
+model_parameters:
+  loss: 'log_loss'
+  learning_rate: 0.16
+  max_iter: 500
+  max_leaf_nodes: 64
+  max_depth: 3
+  min_samples_leaf: 48
+  l2_regularization: 3
+  max_features: 0.2
+  max_bins: 127
+  interaction_cst: 'pairwise'
+  warm_start: False
+  early_stopping: False
+  scoring: 'loss'
+  validation_fraction: null
+  random_state: 0
+  class_weight: null

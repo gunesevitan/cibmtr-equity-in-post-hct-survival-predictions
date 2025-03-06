@@ -16,20 +16,6 @@ import metrics
 
 def objective(trial):
 
-    """
-    Objective function to minimize
-
-    Parameters
-    ----------
-    trial: optuna.trial.Trial
-        Optuna Trial
-
-    Returns
-    -------
-    score: float
-
-    """
-
     parameters = {
         'objective': 'l2',
         'boosting_type': 'gbdt',

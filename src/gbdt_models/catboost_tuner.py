@@ -5,7 +5,7 @@ import yaml
 import json
 import numpy as np
 import pandas as pd
-import xgboost as xgb
+import catboost as cb
 import optuna
 
 sys.path.append('..')
@@ -17,66 +17,66 @@ import metrics
 def objective(trial):
 
     parameters = {
-        'booster': 'gbtree',
-        'device': 'cpu',
-        'nthread': -1,
+        'loss_function': 'RMSE',
+        'eval_metric': 'RMSE',
+        'iterations': 1200,
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, step=0.005),
-        'gamma': trial.suggest_categorical('gamma', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10]),
-        'max_depth': trial.suggest_int('max_depth', 1, 8),
-        'min_child_weight': trial.suggest_int('min_child_weight', 0, 100, step=5),
-        'max_delta_step': trial.suggest_float('max_delta_step', 0., 1.0, step=0.05),
+        'random_seed': None,
+        'l2_leaf_reg': trial.suggest_categorical('l2_leaf_reg', [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
+        'bootstrap_type': 'Bernoulli',
         'subsample': trial.suggest_float('subsample', 0.2, 1.0, step=0.05),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.2, 1.0, step=0.05),
-        'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.2, 1.0, step=0.05),
-        'colsample_bynode': trial.suggest_float('colsample_bynode', 0.2, 1.0, step=0.05),
-        'lambda': trial.suggest_categorical('lambda', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
-        'alpha': 0,
-        'tree_method': 'hist',
-        'grow_policy': 'depthwise',
-        'max_bin': trial.suggest_categorical('max_bin', [255, 384, 512]),
-        'objective': 'reg:squarederror',
-        #'huber_slope': trial.suggest_float('huber_slope', 0.2, 1.0, step=0.05),
-        'eval_metric': None,
-        'seed': None
+        'random_strength': trial.suggest_categorical('random_strength', [0., 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 3, 4, 5, 10]),
+        'use_best_model': False,
+        'depth': trial.suggest_int('depth', 1, 8),
+        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 5, 100, step=5),
+        'has_time': False,
+        'rsm': trial.suggest_float('rsm', 0.2, 1.0, step=0.05),
+        'boosting_type': 'Plain',
+        'boost_from_average': True,
+        'langevin': trial.suggest_categorical('langevin', [True, False]),
+        'metric_period': None,
+        'silent': True,
+        'thread_count': 16,
+        'task_type': 'CPU',
+        'border_count': trial.suggest_categorical('border_count', [255, 384, 512]),
     }
 
     df['prediction'] = 0.
 
     for fold in folds:
 
-        training_mask = df[f'fold{fold}'] == 0
-        validation_mask = df[f'fold{fold}'] == 1
-
-        if config['training']['two_stage']:
-            training_mask = training_mask & (df['efs'] == 1)
-
         for seed in seeds:
 
-            training_dataset = xgb.DMatrix(
+            training_mask = df[f'fold{fold}'] == 0
+            validation_mask = df[f'fold{fold}'] == 1
+
+            if config['training']['two_stage']:
+                training_mask = training_mask & (df['efs'] == 1)
+
+            training_dataset = cb.Pool(
                 df.loc[training_mask, features],
                 label=df.loc[training_mask, target],
-                weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None,
-                enable_categorical=True
+                cat_features=categorical_features,
+                weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None
             )
-            validation_dataset = xgb.DMatrix(
+            validation_dataset = cb.Pool(
                 df.loc[validation_mask, features],
                 label=df.loc[validation_mask, target],
-                weight=df.loc[training_mask, 'weight'] if config['training']['sample_weight'] else None,
-                enable_categorical=True
+                cat_features=categorical_features,
+                weight=df.loc[validation_mask, 'weight'] if config['training']['sample_weight'] else None
             )
+            parameters['random_seed'] = seed
 
-            parameters['seed'] = seed
-
-            model = xgb.train(
+            model = cb.train(
                 params=parameters,
                 dtrain=training_dataset,
-                evals=[(validation_dataset, 'val')],
-                num_boost_round=1000,
-                early_stopping_rounds=None,
-                verbose_eval=0,
+                evals=[validation_dataset]
             )
 
-            validation_predictions = model.predict(validation_dataset)
+            if task == 'classification':
+                validation_predictions = model.predict(validation_dataset, prediction_type='Probability')[:, 1]
+            else:
+                validation_predictions = model.predict(validation_dataset)
 
             if config['training']['two_stage']:
                 if config['training']['target'] == 'log_efs_time':
@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
     df = preprocessing.preprocess(
         df=df,
-        categorical_columns=config['dataset']['categorical_columns'], categorical_dtype='category',
+        categorical_columns=config['dataset']['categorical_columns'], categorical_dtype=str,
         kaplan_meier_targets_path=config['dataset']['kaplan_meier_targets_path'],
         efs_predictions_path=config['dataset']['efs_predictions_path'],
         efs_weight=config['training']['efs_weight']
@@ -164,7 +164,7 @@ if __name__ == '__main__':
             load_if_exists=True,
             direction='maximize'
         )
-        study.optimize(objective, n_trials=300)
+        study.optimize(objective, n_trials=100)
     except KeyboardInterrupt:
         settings.logger.info('Interrupted')
     finally:

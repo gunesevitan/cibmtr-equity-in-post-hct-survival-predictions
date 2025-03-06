@@ -1,9 +1,5 @@
-import sys
 import numpy as np
 import pandas as pd
-
-sys.path.append('..')
-import settings
 
 
 def encode_categorical_columns(df, categorical_columns, dtype):
@@ -29,12 +25,12 @@ def encode_categorical_columns(df, categorical_columns, dtype):
     """
 
     for column in categorical_columns:
-        df[column] = df[column].astype(dtype)
+        df[f'{column}_{dtype.__name__ if dtype == str else dtype}'] = df[column].astype(dtype)
 
     return df
 
 
-def create_targets(df):
+def create_targets(df, efs_predictions_path, kaplan_meier_targets_path, nelson_aalen_targets_path):
 
     """
     Create targets on given dataframe
@@ -42,7 +38,16 @@ def create_targets(df):
     Parameters
     ----------
     df: pandas.DataFrame
-        Dataframe with raw targets
+        Dataframe with event and time columns
+
+    efs_predictions_path: str or pathlib.Path
+        Path of the efs predictions file
+
+    kaplan_meier_targets_path: str or pathlib.Path
+        Path of the kaplan-meier targets file
+
+    nelson_aalen_targets_path: str or pathlib.Path
+        Path of the nelson-aalen targets file
 
     Returns
     -------
@@ -54,37 +59,74 @@ def create_targets(df):
     df['inverted_efs_time'] = df['efs_time'].values
     df.loc[df['efs'] == 0, 'inverted_efs_time'] *= -1
 
-    df_kaplan_meier = pd.read_csv(settings.MODELS / 'kaplan_meier' / 'targets.csv').rename(columns={
-        'survival_probability': 'km_survival_probability'
-    })
-    df_nelson_aalen = pd.read_csv(settings.MODELS / 'nelson_aalen' / 'targets.csv').rename(columns={
-        'cumulative_hazard': 'na_cumulative_hazard'
-    })
-    df = pd.concat((
+    if efs_predictions_path is not None:
+        df = pd.concat((
+            df,
+            pd.read_csv(efs_predictions_path).rename(columns={
+                'prediction': 'efs_prediction'
+            })
+        ), axis=1, ignore_index=False)
+
+    if kaplan_meier_targets_path is not None:
+        df_kaplan_meier = pd.read_csv(kaplan_meier_targets_path).rename(columns={
+            'survival_probability': 'km_survival_probability'
+        })
+        df = pd.concat((
+            df,
+            df_kaplan_meier
+        ), axis=1, ignore_index=False)
+
+        df['log_km_survival_probability'] = np.log1p(df['km_survival_probability'])
+        df['log_km_survival_probability'] -= df['log_km_survival_probability'].min()
+        df['log_km_survival_probability'] /= df['log_km_survival_probability'].max()
+
+    if nelson_aalen_targets_path is not None:
+        df_nelson_aalen = pd.read_csv(nelson_aalen_targets_path).rename(columns={
+            'cumulative_hazard': 'na_cumulative_hazard',
+            'hazard_rate': 'na_hazard_rate'
+        })
+        df = pd.concat((
+            df,
+            df_nelson_aalen
+        ), axis=1, ignore_index=False)
+
+        df['na_cumulative_hazard'] = -np.exp(df['na_cumulative_hazard'])
+        df['na_hazard_rate'] = -np.exp(df['na_hazard_rate'])
+
+    return df
+
+
+def create_sample_weights(df, efs_weight):
+
+    """
+    Create sample weights on given dataframe
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Dataframe with event column
+
+    efs_weight: float
+        Weights of event occurred samples
+
+    Returns
+    -------
+    df: pandas.DataFrame
+        Dataframe with sample weights
+    """
+
+    df['weight'] = 1
+    df.loc[df['efs'] == 1, 'weight'] = efs_weight
+
+    return df
+
+
+def preprocess(
         df,
-        df_kaplan_meier,
-        df_nelson_aalen
-    ), axis=1, ignore_index=False)
-
-    df['log_km_survival_probability'] = np.log(df['km_survival_probability'])
-    df['log_km_survival_probability'] -= df['log_km_survival_probability'].min()
-    df['log_km_survival_probability'] /= df['log_km_survival_probability'].max()
-    df['exp_na_cumulative_hazard'] = -np.exp(df['na_cumulative_hazard'])
-    df['exp_na_cumulative_hazard'] -= df['exp_na_cumulative_hazard'].min()
-    df['exp_na_cumulative_hazard'] /= df['exp_na_cumulative_hazard'].max()
-
-    return df
-
-
-def create_sample_weights(df):
-
-    df['weight'] = 1.
-    df.loc[df['efs'] == 0, 'weight'] = 0.9
-
-    return df
-
-
-def preprocess(df, categorical_columns, categorical_dtype):
+        categorical_columns, categorical_dtype,
+        efs_predictions_path, kaplan_meier_targets_path, nelson_aalen_targets_path,
+        efs_weight
+):
 
     """
     Preprocess given dataframe for training LightGBM model
@@ -100,6 +142,18 @@ def preprocess(df, categorical_columns, categorical_dtype):
     categorical_dtype: str
         Type of the categorical column
 
+    efs_predictions_path: str or pathlib.Path or None
+        Path of the efs predictions file
+
+    kaplan_meier_targets_path: str or pathlib.Path or None
+        Path of the kaplan-meier targets file
+
+    nelson_aalen_targets_path: str or pathlib.Path
+        Path of the nelson-aalen targets file
+
+    efs_weight: float (efs_weight >= 1)
+        Weights of event occurred samples
+
     Returns
     -------
     df: pandas.DataFrame
@@ -107,8 +161,13 @@ def preprocess(df, categorical_columns, categorical_dtype):
     """
 
     df = df.fillna(np.nan)
-    df = create_targets(df=df)
-    df = create_sample_weights(df=df)
+    df = create_targets(
+        df=df,
+        efs_predictions_path=efs_predictions_path,
+        kaplan_meier_targets_path=kaplan_meier_targets_path,
+        nelson_aalen_targets_path=nelson_aalen_targets_path
+    )
+    df = create_sample_weights(df=df, efs_weight=efs_weight)
     df = encode_categorical_columns(df=df, categorical_columns=categorical_columns, dtype=categorical_dtype)
 
     return df

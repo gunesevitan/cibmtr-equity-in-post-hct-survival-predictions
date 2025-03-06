@@ -188,6 +188,9 @@ def create_targets(
     kaplan_meier_targets_path: str or pathlib.Path
         Path of the kaplan-meier targets file
 
+    nelson_aalen_targets_path: str or pathlib.Path
+        Path of the nelson-aalen targets file
+
     Returns
     -------
     df: pandas.DataFrame
@@ -293,6 +296,9 @@ def preprocess(
 
     kaplan_meier_targets_path: str or pathlib.Path or None
         Path of the kaplan-meier targets file
+
+    nelson_aalen_targets_path: str or pathlib.Path
+        Path of the nelson-aalen targets file
 
     efs_weight: float (efs_weight >= 1)
         Weights of event occurred samples

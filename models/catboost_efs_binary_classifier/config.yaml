@@ -1,0 +1,78 @@
+dataset:
+  name: 'dataset.parquet'
+  categorical_columns: [
+    'dri_score', 'psych_disturb', 'cyto_score', 'diabetes',
+    'hla_match_c_high', 'hla_high_res_8', 'tbi_status', 'arrhythmia', 'hla_low_res_6',
+    'graft_type', 'vent_hist', 'renal_issue', 'pulm_severe', 'prim_disease_hct',  'hla_high_res_6', 'cmv_status',
+    'hla_high_res_10', 'hla_match_dqb1_high', 'tce_imm_match', 'hla_nmdp_6', 'hla_match_c_low', 'rituximab',
+    'hla_match_drb1_low', 'hla_match_dqb1_low', 'prod_type', 'cyto_score_detail', 'conditioning_intensity',
+    'ethnicity', 'year_hct', 'obesity', 'mrd_hct', 'in_vivo_tcd', 'tce_match', 'hla_match_a_high', 'hepatic_severe',
+    'donor_age', 'prior_tumor', 'hla_match_b_low', 'peptic_ulcer', 'age_at_hct', 'hla_match_a_low', 'gvhd_proph',
+    'rheum_issue', 'sex_match', 'hla_match_b_high', 'race_group', 'comorbidity_score', 'karnofsky_score', 'hepatic_mild',
+    'tce_div_match', 'donor_related', 'melphalan_dose', 'hla_low_res_8', 'cardiac', 'hla_match_drb1_high', 'pulm_moderate',
+    'hla_low_res_10'
+  ]
+  efs_predictions_path: null
+  kaplan_meier_targets_path: null
+  nelson_aalen_targets_path: null
+
+training:
+  task: 'classification'
+  sample_weight: False
+  two_stage: False
+  efs_weight: 1.0
+  rank_transform: False
+  target: 'efs'
+  features: [
+    'dri_score_str', 'psych_disturb_str', 'cyto_score_str', 'diabetes_str',
+    'hla_match_c_high_str', 'hla_high_res_8_str',
+    'tbi_status_str', 'arrhythmia_str', 'hla_low_res_6_str', 'graft_type_str', 'vent_hist_str',
+    'renal_issue_str', 'pulm_severe_str', 'prim_disease_hct_str', 'hla_high_res_6_str',
+    'cmv_status_str', 'hla_high_res_10_str', 'hla_match_dqb1_high_str', 'tce_imm_match_str', 'hla_nmdp_6_str', 'hla_match_c_low_str',
+    'rituximab_str', 'hla_match_drb1_low_str', 'hla_match_dqb1_low_str', 'prod_type_str',
+    'cyto_score_detail_str', 'conditioning_intensity_str', 'ethnicity_str',
+    'year_hct_str', 'obesity_str', 'mrd_hct_str', 'in_vivo_tcd_str', 'tce_match_str',
+    'hla_match_a_high_str', 'hepatic_severe_str', 'donor_age_str', 'prior_tumor_str',
+    'hla_match_b_low_str', 'peptic_ulcer_str', 'age_at_hct_str', 'hla_match_a_low_str', 'gvhd_proph_str',
+    'rheum_issue_str', 'sex_match_str', 'hla_match_b_high_str', 'race_group_str', 'comorbidity_score_str',
+    'karnofsky_score_str', 'hepatic_mild_str', 'tce_div_match_str', 'donor_related_str',
+    'melphalan_dose_str', 'hla_low_res_8_str', 'cardiac_str', 'hla_match_drb1_high_str',
+    'pulm_moderate_str', 'hla_low_res_10_str'
+  ]
+  categorical_features: [
+    'dri_score_str', 'psych_disturb_str', 'cyto_score_str', 'diabetes_str',
+    'hla_match_c_high_str', 'hla_high_res_8_str', 'tbi_status_str', 'arrhythmia_str', 'hla_low_res_6_str',
+    'graft_type_str', 'vent_hist_str', 'renal_issue_str', 'pulm_severe_str', 'prim_disease_hct_str',  'hla_high_res_6_str', 'cmv_status_str',
+    'hla_high_res_10_str', 'hla_match_dqb1_high_str', 'tce_imm_match_str', 'hla_nmdp_6_str', 'hla_match_c_low_str', 'rituximab_str',
+    'hla_match_drb1_low_str', 'hla_match_dqb1_low_str', 'prod_type_str', 'cyto_score_detail_str', 'conditioning_intensity_str',
+    'ethnicity_str', 'year_hct_str', 'obesity_str', 'mrd_hct_str', 'in_vivo_tcd_str', 'tce_match_str', 'hla_match_a_high_str', 'hepatic_severe_str',
+    'donor_age_str', 'prior_tumor_str', 'hla_match_b_low_str', 'peptic_ulcer_str', 'age_at_hct_str', 'hla_match_a_low_str', 'gvhd_proph_str',
+    'rheum_issue_str', 'sex_match_str', 'hla_match_b_high_str', 'race_group_str', 'comorbidity_score_str', 'karnofsky_score_str', 'hepatic_mild_str',
+    'tce_div_match_str', 'donor_related_str', 'melphalan_dose_str', 'hla_low_res_8_str', 'cardiac_str', 'hla_match_drb1_high_str', 'pulm_moderate_str',
+    'hla_low_res_10_str'
+  ]
+  folds: [1, 2, 3, 4, 5, 6, 7]
+  seeds: [0,]
+
+model_parameters:
+  loss_function: 'Logloss'
+  eval_metric: 'Logloss'
+  iterations: 1200
+  learning_rate: 0.06
+  random_seed: null
+  l2_leaf_reg: 2
+  bootstrap_type: 'Bernoulli'
+  subsample: 0.85
+  random_strength: 4
+  use_best_model: False
+  depth: 5
+  min_data_in_leaf: 50
+  has_time: False
+  rsm: 0.65
+  boosting_type: 'Plain'
+  boost_from_average: True
+  langevin: True
+  metric_period: 100
+  thread_count: 16
+  task_type: 'CPU'
+  border_count: 384
